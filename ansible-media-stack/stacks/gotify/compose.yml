@@ -1,0 +1,20 @@
+# (Content is identical to the previous version provided for Gotify)
+version: "3.8"
+services:
+  gotify:
+    image: gotify/server:latest
+    container_name: gotify
+    environment:
+      - TZ={{ timezone }}
+    volumes:
+      - "{{ base_data_dir }}/gotify/data:/app/data"
+    ports:
+      - "8085:80"
+    restart: unless-stopped
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network

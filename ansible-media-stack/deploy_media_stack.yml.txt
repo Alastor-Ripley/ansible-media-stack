@@ -1,0 +1,258 @@
+---
+- name: Deploy Podman Media Stack with Systemd User Units
+  hosts: your_ucore_vm_hostname_or_ip # Target your Proxmox VM here
+  gather_facts: yes
+  become: yes # Most tasks need root, but container execution is user-level
+
+  vars:
+    podman_user: "podman_user" # CHANGE THIS to your desired user
+    podman_group: "podman_group" # CHANGE THIS (often same as user)
+    base_stack_dir: "/opt/podman-stacks"
+    base_data_dir: "/opt/podman-data"
+    # Define PUID/PGID based on the 'podman_user' created/used
+    # Run 'id podman_user' on the target VM to find these values
+    user_puid: "1000" # CHANGE THIS
+    user_pgid: "1000" # CHANGE THIS
+    timezone: "America/New_York" # CHANGE THIS to your timezone
+    vpn_provider: "your_vpn_provider" # CHANGE THIS (e.g., mullvad, pia, etc.)
+    vpn_type: "wireguard" # or openvpn
+    # Add other VPN specific vars as needed (credentials, server, etc.)
+    # See Gluetun documentation for required variables
+
+  tasks:
+    - name: Ensure base directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ base_stack_dir }}"
+        - "{{ base_data_dir }}"
+
+    - name: Ensure dedicated group for Podman exists
+      ansible.builtin.group:
+        name: "{{ podman_group }}"
+        state: present
+
+    - name: Ensure dedicated user for Podman exists
+      ansible.builtin.user:
+        name: "{{ podman_user }}"
+        group: "{{ podman_group }}"
+        shell: /bin/bash
+        state: present
+        create_home: yes
+
+    - name: Enable linger for the Podman user
+      ansible.builtin.command: "loginctl enable-linger {{ podman_user }}"
+      changed_when: false # Hard to detect change reliably
+      failed_when: false # Command might report failure if already enabled
+
+    - name: Create data subdirectories for services
+      ansible.builtin.file:
+        path: "{{ base_data_dir }}/{{ item }}"
+        state: directory
+        owner: "{{ podman_user }}"
+        group: "{{ podman_group }}"
+        mode: '0775' # Group writable might be needed by some containers
+      loop:
+        - jellyfin/config
+        - jellyfin/cache
+        - jellyfin/media # Example: Mount your actual media location here in compose
+        - stash/config
+        - stash/generated
+        - stash/metadata
+        - stash/cache
+        - stash/blobs # Or wherever stash stores large files
+        - dozzle/config # Dozzle is often stateless, but can persist logs if needed
+        - crowdsec/config
+        - crowdsec/data
+        - caddy/config
+        - caddy/data # For certificates
+        - caddy/logs
+        - diun/config
+        - diun/data
+        - scrutiny/config
+        - scrutiny/influxdb # Scrutiny collector DB
+        - uptime-kuma/data
+        - jellyseerr/config
+        - infra/config # Placeholder for 'infra' - adjust if needed
+        - gluetun/config
+        - radarr/config
+        - sonarr/config
+        - lidarr/config
+        - prowlarr/config
+        - homepage/config
+        - changedetection/data
+        - unbound/config
+        - jackett/config
+        - jackett/downloads # Blackhole directory if used
+        - flaresolverr/config # Flaresolverr is usually stateless
+
+    - name: Create stack subdirectories for compose files
+      ansible.builtin.file:
+        path: "{{ base_stack_dir }}/{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - jellyfin
+        - stash
+        - dozzle
+        - crowdsec
+        - caddy
+        - diun
+        - scrutiny
+        - uptime-kuma
+        - jellyseerr
+        - infra # Placeholder
+        - gluetun
+        - radarr
+        - sonarr
+        - lidarr
+        - prowlarr
+        - homepage
+        - changedetection
+        - unbound
+        - duckdns
+        - jackett
+        - flaresolverr
+
+    - name: Copy Compose files to target host
+      ansible.builtin.copy:
+        src: "compose-files/{{ item }}/compose.yml" # Assumes compose files are in ./compose-files/<service_name>/
+        dest: "{{ base_stack_dir }}/{{ item }}/compose.yml"
+        mode: '0644'
+      loop:
+        # List all services that have a compose file
+        - jellyfin
+        - stash
+        - dozzle
+        - crowdsec
+        - caddy
+        - diun
+        - scrutiny
+        - uptime-kuma
+        - jellyseerr
+        - infra # Placeholder
+        - gluetun
+        - radarr
+        - sonarr
+        - lidarr
+        - prowlarr
+        - homepage
+        - changedetection
+        - unbound
+        - duckdns
+        - jackett
+        - flaresolverr
+
+    # Optional: Copy Caddyfile if managing it via Ansible
+    - name: Copy Caddyfile
+      ansible.builtin.copy:
+        src: "caddy/Caddyfile" # Assumes Caddyfile is in ./caddy/
+        dest: "{{ base_data_dir }}/caddy/config/Caddyfile"
+        owner: "{{ podman_user }}"
+        group: "{{ podman_group }}"
+        mode: '0644'
+      notify: Restart Caddy Service # Handler needed if Caddyfile changes
+
+    - name: Generate and manage systemd user units for each stack
+      ansible.builtin.command: >-
+        podman generate systemd --new --files --name {{ item }} {{ base_stack_dir }}/{{ item }}/compose.yml
+      args:
+        chdir: "/home/{{ podman_user }}" # Run in user's home to place units correctly
+        creates: "/home/{{ podman_user }}/.config/systemd/user/{{ item }}.service" # Basic idempotency
+      become: yes
+      become_user: "{{ podman_user }}"
+      register: systemd_generate_result
+      changed_when: "'Created' in systemd_generate_result.stdout"
+      loop:
+        # List all services again
+        - jellyfin
+        - stash
+        - dozzle
+        - crowdsec
+        - caddy
+        - diun
+        - scrutiny
+        - uptime-kuma
+        - jellyseerr
+        - infra # Placeholder
+        - gluetun
+        - radarr
+        - sonarr
+        - lidarr
+        - prowlarr
+        - homepage
+        - changedetection
+        - unbound
+        - duckdns
+        - jackett
+        - flaresolverr
+      notify: Reload Systemd User Daemon
+
+    # Need handlers to reload systemd and potentially restart services
+  handlers:
+    - name: Reload Systemd User Daemon
+      ansible.builtin.systemd:
+        scope: user
+        daemon_reload: yes
+      become: yes
+      become_user: "{{ podman_user }}"
+
+    - name: Enable and Start Podman Service
+      ansible.builtin.systemd:
+        scope: user
+        name: "{{ item }}.service"
+        enabled: yes
+        state: started
+      become: yes
+      become_user: "{{ podman_user }}"
+      # This handler would be triggered by changes needing a service restart
+      # Loop through services if needed, or trigger specific ones like Caddy
+      # Example for Caddy triggered by Caddyfile change:
+    - name: Restart Caddy Service
+      ansible.builtin.systemd:
+        scope: user
+        name: caddy.service # Assumes systemd unit name matches stack name
+        state: restarted
+      become: yes
+      become_user: "{{ podman_user }}"
+
+# --- Final Play Task: Explicitly enable and start all generated services ---
+# This runs after generation and potential daemon-reload
+- name: Ensure Podman services are enabled and started
+  hosts: your_ucore_vm_hostname_or_ip
+  gather_facts: no # Facts gathered in previous play
+  become: yes # Need to become the user
+  become_user: "{{ podman_user }}" # Use var from previous play
+
+  tasks:
+    - name: Enable and start systemd user units
+      ansible.builtin.systemd:
+        scope: user
+        name: "{{ item }}.service" # Assumes unit name matches stack name
+        enabled: yes
+        state: started
+      loop:
+        # List all services one last time
+        - jellyfin
+        - stash
+        - dozzle
+        - crowdsec
+        - caddy
+        - diun
+        - scrutiny
+        - uptime-kuma
+        - jellyseerr
+        - infra # Placeholder
+        - gluetun
+        - radarr
+        - sonarr
+        - lidarr
+        - prowlarr
+        - homepage
+        - changedetection
+        - unbound
+        - duckdns
+        - jackett
+        - flaresolverr

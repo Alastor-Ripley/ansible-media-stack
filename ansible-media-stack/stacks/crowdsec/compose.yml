@@ -1,0 +1,48 @@
+version: '3.8'
+services:
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: crowdsec
+    environment:
+      # GID required for access to the podman socket/log files if parsing directly
+      # Needs careful permission setup if reading host logs
+      - GID= # Set this to the GID of the group owning logs/socket
+      - TZ=America/New_York
+      # Add other CrowdSec env vars as needed (COLLECTIONS, PARSERS, etc.)
+    volumes:
+      - /opt/podman-data/crowdsec/config:/etc/crowdsec/
+      - /opt/podman-data/crowdsec/data:/var/lib/crowdsec/data/
+      # Example: Mount log directory to parse (e.g., Caddy logs) READ-ONLY
+      - /opt/podman-data/caddy/logs:/var/log/caddy:ro
+      # Example: Mount podman socket if needed (requires careful GID)
+      # - /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro
+    # ports: # CrowdSec usually doesn't need exposed ports unless using API/metrics externally
+    #   - "8080:8080" # Agent API (if needed)
+    #   - "6060:6060" # Metrics (if needed)
+    restart: unless-stopped
+    depends_on:
+      - caddy # Example: Ensure Caddy is up if parsing its logs
+    networks:
+      - media_network
+
+  # Optional: CrowdSec Bouncer (e.g., firewall bouncer) - Requires NET_ADMIN
+  # bouncer:
+  #   image: crowdsecurity/cs-firewall-bouncer:latest
+  #   container_name: crowdsec-firewall-bouncer
+  #   environment:
+  #     - API_KEY=YOUR_BOUNCER_API_KEY # Generate using 'cscli bouncers add firewall-bouncer'
+  #     - API_URL=http://crowdsec:8080
+  #     - FIREWALL_TYPE=nftables # or iptables
+  #   volumes:
+  #     - /etc/crowdsec/bouncers/:/etc/crowdsec/bouncers/ # Persist bouncer config
+  #   cap_add:
+  #     - NET_ADMIN # Required to modify firewall rules
+  #   network_mode: "host" # Often easiest for firewall bouncers
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - crowdsec
+
+networks:
+  media_network:
+    external: true
+    name: media_network

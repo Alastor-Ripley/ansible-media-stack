@@ -1,0 +1,62 @@
+# Borgmatic Configuration (Example - Review Official Docs)
+# https://torsion.org/borgmatic/docs/reference/configuration/
+
+location:
+    # List of source directories to backup (paths inside the container)
+    source_directories:
+        - /source_data/jellyfin/config
+        - /source_data/radarr/config
+        - /source_data/sonarr/config
+        # Add all config directories you want to back up
+
+    # Repository location (examples below)
+    repositories:
+        # Example 1: Local Path (mounted into container at /repo)
+        # - path: /repo/media-stack-configs
+        # Example 2: SSH Target
+        - path: user@your-backup-server.com:/path/to/borg/repo/media-stack-configs
+          label: remote_backup
+
+    # Optional: Patterns to exclude files/directories
+    # exclude_patterns:
+    #     - /source_data/*/cache/
+    #     - "*.log"
+
+storage:
+    # Borg repository encryption mode (repokey is common)
+    encryption_passphrase: "YOUR_BORG_REPO_PASSPHRASE_USE_VAULT" # !!! USE VAULT !!!
+    # Or use encryption_passcommand if storing passphrase securely elsewhere
+
+    # Compression algorithm
+    compression: auto,lz4
+
+    # Archive name format
+    archive_name_format: '{hostname}-{now:%Y-%m-%dT%H:%M:%S}'
+
+retention:
+    # Retention policy (keep specified number of backups)
+    keep_daily: 7
+    keep_weekly: 4
+    keep_monthly: 6
+    # keep_yearly: 1 # Optional
+
+    # Prefix for archives to apply policy to (usually not needed if only one repo config)
+    # prefix: '{hostname}-'
+
+consistency:
+    # Frequency of consistency checks
+    checks:
+        - name: repository
+        - name: archives
+
+    # Apply checks to archives matching prefix
+    # prefix: '{hostname}-'
+
+# Hooks (Optional: run commands before/after backups)
+# hooks:
+#    before_backup:
+#        - echo "Starting backup..."
+#    after_backup:
+#        - echo "Backup finished!"
+#    on_error:
+#        - echo "Backup failed!"

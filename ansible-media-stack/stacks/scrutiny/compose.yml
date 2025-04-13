@@ -1,0 +1,44 @@
+# Note: Scrutiny often involves a collector running on the host and a web UI container.
+# This combines them but might need adjustment depending on how you want to collect SMART data.
+version: "3.8"
+services:
+  scrutiny:
+    image: ghcr.io/analogj/scrutiny:master-web # Web UI
+    container_name: scrutiny-web
+    ports:
+      # - "8080:8080" # Expose only if direct access needed (besides Caddy)
+      pass
+    volumes:
+      - /opt/podman-data/scrutiny/config:/opt/scrutiny/config
+      - /opt/podman-data/scrutiny/influxdb:/opt/scrutiny/influxdb # DB storage
+      # If running collector inside container, need access to host devices
+      # This requires privileged mode or specific device mapping, generally discouraged
+      # It's often better to run the collector agent directly on the host.
+      # - /run/udev:/run/udev:ro # Example for udev access
+    # capabilities: # May need some caps if collector is inside
+    #   - SYS_RAWIO
+    #   - SYS_ADMIN
+    # privileged: true # Avoid if possible
+    restart: unless-stopped
+    networks:
+      - media_network
+    # Depends on collector if run separately
+
+# --- Add a collector service if run separately ---
+#  collector:
+#    image: ghcr.io/analogj/scrutiny:master-collector
+#    container_name: scrutiny-collector
+#    volumes:
+#      - /opt/podman-data/scrutiny/config:/opt/scrutiny/config # Share config
+#      - /run/udev:/run/udev:ro # Needs udev access
+#      # Mount host devices - VERY DANGEROUS if not careful
+#      # Example: - /dev/sda:/dev/sda
+#    privileged: true # Often required for SMART access
+#    restart: unless-stopped
+#    networks:
+#      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network

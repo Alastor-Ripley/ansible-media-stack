@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+  authelia:
+    image: authelia/authelia:latest
+    container_name: authelia
+    volumes:
+      # Mount the configuration directory (contains configuration.yml)
+      - "{{ base_data_dir }}/authelia/config:/config"
+    ports:
+      - "9091:9091" # Default Authelia port
+    environment:
+      - TZ={{ timezone }}
+      # PUID/PGID might be needed if config files require specific ownership
+      # - PUID={{ user_puid }}
+      # - PGID={{ user_pgid }}
+    restart: unless-stopped
+    networks:
+      - media_network # Needs to be reachable by Caddy
+
+networks:
+  media_network:
+    external: true
+    name: media_network

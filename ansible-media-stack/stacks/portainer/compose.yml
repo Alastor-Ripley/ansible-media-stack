@@ -1,0 +1,21 @@
+# (Content is identical to the previous version provided for Portainer)
+version: "3.8"
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    command: -H unix:///var/run/podman/podman.sock
+    volumes:
+      - /run/user/{{ user_puid }}/podman/podman.sock:/var/run/podman/podman.sock:rw
+      - "{{ base_data_dir }}/portainer/data:/data"
+    ports:
+      - "8000:8000"
+      - "9443:9443"
+    restart: unless-stopped
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network

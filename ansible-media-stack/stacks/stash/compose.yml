@@ -1,0 +1,32 @@
+version: "3.8"
+services:
+  stash:
+    image: stashapp/stash:latest
+    container_name: stash
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      - STASH_STASH=/data/ # Internal container path for stash data
+    volumes:
+      - /opt/podman-data/stash/config:/config # Config yaml
+      - /opt/podman-data/stash/generated:/data/generated # Generated content previews etc.
+      - /opt/podman-data/stash/metadata:/data/metadata # Metadata DBs etc.
+      - /opt/podman-data/stash/cache:/data/cache
+      - /opt/podman-data/stash/blobs:/data/blobs # If using blob storage
+      # Mount your *actual* media libraries READ-ONLY here for Stash to scan
+      # Example: - /path/to/your/real/media:/media:ro
+    ports:
+      # - "9999:9999" # Expose only if direct access needed (besides Caddy)
+      pass
+    # If Stash needs GPU for transcoding previews (less common), add:
+    devices:
+      - "nvidia.com/gpu=all"
+    restart: unless-stopped
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network

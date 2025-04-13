@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    environment:
+      - PUID=1000
+      - PGID=1000
+      # - HOMEPAGE_VAR_TZ=America/New_York # Set TZ via config file instead usually
+    volumes:
+      - /opt/podman-data/homepage/config:/app/config # Mount your config directory
+      # Mount podman socket (read-only) for container status widget
+      - /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro # CHANGE 1000
+    ports:
+      # - '3000:3000' # Expose only if direct access needed (besides Caddy)
+      pass
+    restart: unless-stopped
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network

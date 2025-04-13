@@ -1,0 +1,23 @@
+# (Content is identical to the previous version provided for qBittorrent)
+version: "3.8"
+services:
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID={{ user_puid }}
+      - PGID={{ user_pgid }}
+      - TZ={{ timezone }}
+      - WEBUI_PORT=8080
+      - TORRENTING_PORT=6881
+    volumes:
+      - "{{ base_data_dir }}/qbittorrent/config:/config"
+      - /path/to/your/downloads:/downloads # CHANGE THIS
+    ports:
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    network_mode: "service:gluetun"
+    restart: unless-stopped
+    depends_on:
+      - gluetun

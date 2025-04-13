@@ -1,0 +1,38 @@
+# (Content is identical to the previous version provided for Gluetun)
+# Ensure ports 6881, 8080, 8081 are listed under 'ports:' and potentially
+# added to FIREWALL_VPN_INPUT_PORTS environment variable if needed.
+version: "3.8"
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      # --- ADDED/MODIFIED QBITTORRENT/SAB PORTS ---
+      - "8080:8080" # qBittorrent Web UI
+      - "6881:6881" # qBittorrent P2P TCP
+      - "6881:6881/udp" # qBittorrent P2P UDP
+      - "8081:8081" # SABnzbd Web UI
+    volumes:
+      - "{{ base_data_dir }}/gluetun/config:/gluetun"
+    environment:
+      - PUID={{ user_puid }}
+      - PGID={{ user_pgid }}
+      - TZ=America/New_York
+      - VPN_SERVICE_PROVIDER=nordvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY={{ vault_nordvpn_wg_private_key }}
+      - WIREGUARD_ADDRESSES={{ vault_nordvpn_wg_address }}
+      # ... (Your existing VPN settings) ...
+      # --- Firewall / Port Forwarding ---
+      - FIREWALL_VPN_INPUT_PORTS=6881 # Example - Add others if needed & supported
+      - DOT=off
+    restart: unless-stopped
+
+networks:
+  media_network:
+    external: true
+    name: media_network

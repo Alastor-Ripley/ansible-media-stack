@@ -1,0 +1,29 @@
+# Note: This container holds the tool. Backups are typically triggered via host cron/systemd timer
+# calling 'podman exec borgmatic borgmatic create ...' etc.
+version: "3.8"
+services:
+  borgmatic:
+    image: ghcr.io/borgmatic-collective/borgmatic:latest # Or specific version
+    container_name: borgmatic
+    environment:
+      - TZ={{ timezone }}
+      # Pass PUID/PGID if needed for file permissions accessing mounted volumes
+      - PUID={{ user_puid }}
+      - PGID={{ user_pgid }}
+    volumes:
+      # Configuration file (managed by Ansible)
+      - "{{ base_data_dir }}/borgmatic/config:/root/.config/borgmatic:ro"
+      # Borg cache (persistent named volume recommended)
+      - borgmatic_cache:/root/.cache/borg # Persists cache between runs
+      # Source data to back up (Mount read-only)
+      - "{{ base_data_dir }}:/source_data:ro" # Mount parent data dir, adjust if needed
+      # Example: Mount host SSH keys if backing up to SSH target (READ ONLY)
+      - /home/{{ podman_user }}/.ssh:/root/.ssh:ro # Adjust host path if needed
+      # Example: Mount local backup destination if applicable
+      # - /path/to/local/borg/repo:/repo
+    # Keep container running (optional, needed only if using internal cron/entrypoint)
+    # command: ["sleep", "infinity"] # Keeps container alive for exec commands
+    restart: unless-stopped # Or 'no' if only used for exec
+
+volumes:
+  borgmatic_cache: # Define named volume for cache

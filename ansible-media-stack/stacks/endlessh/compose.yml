@@ -1,0 +1,18 @@
+# compose-files/endlessh/compose.yml
+version: "3.8"
+services:
+  endlessh:
+    image: shizunge/endlessh-g:latest
+    container_name: endlessh
+    # Ports: Map host port to container port (default internal port is 2222)
+    # IMPORTANT: If you want this to listen on the standard SSH port 22 on your host,
+    # change "2222:2222" to "22:2222". Make SURE your host's real SSHd is NOT listening on port 22 if you do this.
+    ports:
+      - "2222:2222" # Host Port : Container Port
+    # Command arguments (optional - check image docs for options if needed):
+    # Example: Set delay to 5 seconds (5000 ms), log level verbose(2)
+    # command: ["-p", "2222", "-d", "5000", "-l", "2"]
+    restart: unless-stopped
+    # No volumes or custom networks needed
+
+# No top-level networks needed as it uses port mapping to the host

@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    volumes:
+      - /opt/podman-data/uptime-kuma/data:/app/data
+      # Optional: Mount podman socket if monitoring containers
+      # - /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro # CHANGE 1000
+    ports:
+      # - "3001:3001" # Expose only if direct access needed (besides Caddy)
+      pass
+    restart: unless-stopped
+    networks:
+      - media_network # Needs network to ping internal services
+
+networks:
+  media_network:
+    external: true
+    name: media_network
