@@ -1,0 +1,38 @@
+# stacks/godns/config.yml.j2
+# Refer to GoDNS documentation for exact structure and options:
+# https://timothyye.github.io/godns/
+
+provider: IONOS
+
+# Set login token to your IONOS API Key from Vault
+login_token: "{{ vault_ionos_api_key }}"
+
+# Optional: Set interval (e.g., "5m" for 5 minutes) if not using external scheduler
+# interval: 5m
+
+# Define the domains to update
+domains:
+  - domain_name: alastordeciditripley.com # Your main domain
+    sub_domains:
+      - "@"    # Represents the root domain itself
+      - www    # Example: Updates www.alastordeciditripley.com
+      - jellyfin # Add ALL subdomains you use in Caddy
+      - sonarr
+      - radarr
+      - portainer
+      - gotify
+      - changedetection
+      - stash
+      - home
+      - lidarr
+      - prowlarr
+      - request
+      # ... etc ...
+
+# Optional: Configure IP address source (usually auto-detected)
+# ip_interface: eth0
+# ip_type: IPv4
+
+# Optional: Notifications (e.g., email - requires separate config)
+# notification:
+#   enabled: false

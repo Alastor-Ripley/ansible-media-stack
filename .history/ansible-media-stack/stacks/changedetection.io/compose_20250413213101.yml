@@ -4,8 +4,8 @@ services:
     image: dgtlmoon/changedetection.io:latest
     container_name: changedetection
     environment:
-      - PUID=2000 # May not be respected, check image docs
-      - PGID=2000 # May not be respected, check image docs
+      - PUID=1000 # May not be respected, check image docs
+      - PGID=1000 # May not be respected, check image docs
       - TZ=America/New_York
       # Optional: Use Playwright/WebDriver for JS rendering (requires Flaresolverr or similar)
       # - WEBDRIVER_URL=http://flaresolverr:8191/v1

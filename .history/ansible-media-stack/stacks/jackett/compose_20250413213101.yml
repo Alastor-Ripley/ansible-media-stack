@@ -4,8 +4,8 @@ services:
     image: linuxserver/jackett:latest
     container_name: jackett
     environment:
-      - PUID=2000
-      - PGID=2000
+      - PUID=1000
+      - PGID=1000
       - TZ=America/New_York
       - AUTO_UPDATE=true # Optional: Enable internal updater
     volumes:

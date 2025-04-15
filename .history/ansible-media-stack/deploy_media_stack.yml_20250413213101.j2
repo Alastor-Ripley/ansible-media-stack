@@ -27,7 +27,6 @@
     authelia_jwt_secret:  "{{ authelia_jwt_secret }}"
     authelia_storage_encryption_key: "{{ authelia_storage_encryption_key }}" # If encrypting storage like SQLite
     borg_repo_passphrase: "{{ borg_repo_passphrase }}" # Borgmatic passphrase
-    vault_ionos_api_key: "{{ vault_ionos_api_key }}" # IONOS API key for DNS
 
     # --- Tokens ---
     gotify_app_token: "CHANGE_ME_GET_FROM_GOTIFY_UI" # For Diun
@@ -53,7 +52,7 @@
       - homepage
       - changedetection
       - unbound
-      - godns
+      - duckdns
       - jackett
       - flaresolverr
       - endlessh
@@ -109,23 +108,8 @@
       - authelia/config
       - gotify/data
       - portainer/data
-      - godns/config
 
   tasks:
-    - name: Template GoDNS configuration file
-      ansible.builtin.template:
-        src: "stacks/godns/config.yml.j2" # Source is a Jinja2 template
-        dest: "{{ base_data_dir }}/godns/config/config.yml"
-        owner: "{{ podman_user }}"
-        group: "{{ podman_group }}"
-        mode: '0600' # Config contains secrets, restrict permissions
-    
-    - name: Template GoDNS Compose file
-      ansible.builtin.template:
-        src: "stacks/godns/compose.yml.j2"
-        dest: "{{ base_stack_dir }}/godns/compose.yml"
-        mode: '0644'
-
     - name: Ensure base directories exist
       ansible.builtin.file:
         path: "{{ item }}"
@@ -133,7 +117,7 @@
         mode: '0755'
       loop:
         - "{{ base_stack_dir }}"
-        - "{{ base_data_dir }}"\
+        - "{{ base_data_dir }}"
 
     - name: Ensure dedicated group for Podman exists
       ansible.builtin.group:

@@ -4,8 +4,8 @@ services:
     image: fallenbagel/jellyseerr:latest
     container_name: jellyseerr
     environment:
-      - PUID=2000
-      - PGID=2000
+      - PUID=1000
+      - PGID=1000
       - TZ=America/New_York
       - LOG_LEVEL=info
     volumes:

@@ -4,8 +4,8 @@ services:
     image: linuxserver/jellyfin:latest
     container_name: jellyfin
     environment:
-      - PUID=2000 # Change to var.user_puid
-      - PGID=2000 # Change to var.user_pgid
+      - PUID=1000 # Change to var.user_puid
+      - PGID=1000 # Change to var.user_pgid
       - TZ=America/New_York # Change to var.timezone
       - JELLYFIN_PublishedServerUrl=http://your_jellyfin_domain_or_ip # Optional: Helps with discovery
     volumes:

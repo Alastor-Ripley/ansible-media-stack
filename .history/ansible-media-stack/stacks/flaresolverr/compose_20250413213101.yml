@@ -4,8 +4,8 @@ services:
     image: flaresolverr/flaresolverr:latest
     container_name: flaresolverr
     environment:
-      - PUID=2000 # Check image docs
-      - PGID=2000 # Check image docs
+      - PUID=1000 # Check image docs
+      - PGID=1000 # Check image docs
       - LOG_LEVEL=info
       - TZ=America/New_York
       # - CAPTCHA_SOLVER= # Configure if using hCaptcha etc. solver services

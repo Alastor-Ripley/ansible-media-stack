@@ -4,8 +4,8 @@ services:
     image: some/infra-image:latest # CHANGE THIS to your actual image
     container_name: infra
     environment:
-      - PUID=2000
-      - PGID=2000
+      - PUID=1000
+      - PGID=1000
       - TZ=America/New_York
       # - OTHER_ENV_VARS=needed_by_image
     volumes:

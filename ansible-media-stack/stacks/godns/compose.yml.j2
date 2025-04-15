@@ -1,0 +1,27 @@
+# stacks/godns/compose.yml.j2
+version: "3.8"
+services:
+  godns:
+    # Check Docker Hub for timothyye/godns or other suitable images
+    image: timothyye/godns:latest
+    container_name: godns
+    environment:
+      # Inherit standard vars from Ansible playbook
+      - PUID={{ user_puid }} # Check if image respects PUID/PGID for config file ownership
+      - PGID={{ user_pgid }} # May not be needed if container runs as root or handles permissions
+      - TZ={{ timezone }}
+      # Optional: Force config file path if needed by image
+      # - Conf=/app/config/config.yml
+    volumes:
+      # Mount the host directory where Ansible places the config file
+      - "{{ base_data_dir }}/godns/config:/app/config:ro" # Mount config read-only
+    restart: unless-stopped
+    # No ports needed usually
+    networks:
+     # Needs network to check public IP and contact IONOS API
+     - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network

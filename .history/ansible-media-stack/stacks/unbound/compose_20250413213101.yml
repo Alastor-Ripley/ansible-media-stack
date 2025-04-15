@@ -6,8 +6,8 @@ services:
     image: mvance/unbound:latest
     container_name: unbound
     environment:
-      - PUID=2000 # Check image docs if these are used
-      - PGID=2000
+      - PUID=1000 # Check image docs if these are used
+      - PGID=1000
       - TZ=America/New_York
     ports:
       - "53:53/tcp" # Standard DNS ports

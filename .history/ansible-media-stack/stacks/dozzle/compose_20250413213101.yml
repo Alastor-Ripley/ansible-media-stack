@@ -9,7 +9,7 @@ services:
       # Mount podman socket (use rootless socket path)
       # Find with: `podman info --format '{{ .Host.RemoteSocket.Path }}'`
       # Common path: /run/user/$(id -u <podman_user>)/podman/podman.sock
-      - /run/user/2000/podman/podman.sock:/var/run/docker.sock:ro # CHANGE 1000 to your user's UID
+      - /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro # CHANGE 1000 to your user's UID
       # Optional persistence if needed:
       # - /opt/podman-data/dozzle/config:/data
     ports:
