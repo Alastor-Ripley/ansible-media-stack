@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   jellyfin:
-    image: linuxserver/jellyfin:latest
+    image: infinitesoul/jellyfin:10.10.6-ffmpeg7.0.2-9
     container_name: jellyfin
     environment:
       - PUID=2000 # Change to var.user_puid
