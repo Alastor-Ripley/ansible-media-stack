@@ -223,7 +223,7 @@
         src: "stacks/{{ item }}/compose.yml"
         dest: "{{ base_stack_dir }}/{{ item }}/compose.yml"
         mode: '0644'
-      loop: "{{ podman_services | difference(['diun', 'authelia', 'borgmatic']) }}" # Exclude templated ones if using templates, adjust as needed if not templating
+      loop: "{{ podman_services | difference(['diun', 'authelia', 'borgmatic', 'godns']) }}" # Exclude templated ones if using templates, adjust as needed if not templating
       # If not templating Authelia/Borgmatic compose files, include them here.
 
     - name: Ensure firewall allows required ports (using firewalld)
@@ -272,7 +272,7 @@
 
 # --- Final Play Task: Explicitly enable and start all generated services ---
 - name: Ensure Podman services are enabled and started
-  hosts: your_ucore_vm_hostname_or_ip
+  hosts: 192.168.50.135
   gather_facts: no
   become: yes
   become_user: "{{ podman_user }}"
