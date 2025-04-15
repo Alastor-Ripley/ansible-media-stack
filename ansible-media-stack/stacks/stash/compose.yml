@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   stash:
-    image: stashapp/stash:latest
+    image: ghcr.io/nerethos/stash:latest
     container_name: stash
     environment:
       - PUID=2000
