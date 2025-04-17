@@ -1,0 +1,34 @@
+version: "3.8"
+services:
+  jellyfin:
+    image: bitwrk/jellyfin-rffmpeg:latest
+    container_name: jellyfin
+    environment:
+      - PUID=2000 # Change to var.user_puid
+      - PGID=2000 # Change to var.user_pgid
+      - TZ=America/New_York # Change to var.timezone
+      - JELLYFIN_PublishedServerUrl=http://your_jellyfin_domain_or_ip # Optional: Helps with discovery
+    volumes:
+      - /opt/podman-data/jellyfin/config:/config
+      - /opt/podman-data/jellyfin/cache:/cache
+      - /home/alastor/Paul-McGann/:/videos # IMPORTANT: Point this to your actual media library on the host
+      # Example: - /mnt/storage/movies:/media/movies
+      # Example: - /mnt/storage/tv:/media/tv
+    ports:
+      # - "8096:8096" # Expose only if direct access needed (besides Caddy)
+      # - "8920:8920" # Optional: HTTPS - Expose only if direct access needed
+      - "1900:1900/udp" # Optional: DLNA Service Discovery
+      - "7359:7359/udp" # Optional: Client Discovery
+    devices:
+      # Nvidia GPU Hardware Acceleration via CDI
+      - "nvidia.com/gpu=all"
+      # Optional: Intel QuickSync / AMD VA-API (if applicable and configured on host)
+      # - "/dev/dri:/dev/dri"
+    restart: unless-stopped
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true # Assumes network is created elsewhere or by another compose file
+    name: media_network
