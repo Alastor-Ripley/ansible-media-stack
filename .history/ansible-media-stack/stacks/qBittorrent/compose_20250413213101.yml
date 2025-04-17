@@ -12,8 +12,7 @@ services:
       - TORRENTING_PORT=6881
     volumes:
       - "{{ base_data_dir }}/qbittorrent/config:/config"
-      - /home/alastor/Downloading:/downloading # CHANGE THIS
-      - /home/alastor/Videos:/videos
+      - /path/to/your/downloads:/downloads # CHANGE THIS
     ports:
       - "8080:8080"
       - "6881:6881"
