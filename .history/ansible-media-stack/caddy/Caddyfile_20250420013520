@@ -1,0 +1,106 @@
+# (Optional) Global options
+{
+    email alastorripley@gmail.com # For ACME TLS certificates
+    # acme_dns cloudflare your_api_token # If using DNS challenge
+}
+
+# --- Authelia Forward Auth Snippet (Placeholder - NEEDS WORK) ---
+# See Authelia and Caddy documentation for proper setup!
+(forward_auth) {
+   forward_auth {
+      uri http://authelia:9091/api/verify?rd=https%3A%2F%2F{host}{uri} # Use internal http
+      copy_headers Authorization Remote-User Remote-Groups Remote-Name Remote-Email X-Forwarded-Proto X-Original-URL
+      # IMPORTANT: Configure trusted_proxies in Authelia config to trust Caddy
+   }
+}
+
+# --- Your Services ---
+
+# Portainer
+portainer.alastordeciditripley.com {
+    import forward_auth # Uncomment to protect with Authelia (one_factor usually sufficient)
+    reverse_proxy portainer:9000 # Proxy to internal HTTP port
+}
+
+# Gotify
+gotify.alastordeciditripley.com {
+    import forward_auth # Uncomment to protect with Authelia
+    reverse_proxy gotify:80 # Proxy to internal container port (Host 8085 maps to Container 80)
+}
+
+# qBittorrent (Accessed via Gluetun network - Direct access often preferred)
+# qbit.alastordeciditripley.com {
+#    import forward_auth
+#    reverse_proxy http://gluetun:8080
+# }
+
+# SABnzbd (Accessed via Gluetun network - Direct access often preferred)
+# sab.alastordeciditripley.com {
+#    # import forward_auth
+#    reverse_proxy http://gluetun:8081
+# }
+
+# --- Existing Services (Add forward_auth as desired) ---
+
+# Jellyfin Example
+jellyfin.alastordeciditripley.com {
+    import forward_auth # Uncomment to protect with Authelia
+    reverse_proxy jellyfin:8096
+    encode zstd gzip
+}
+
+# Sonarr Example
+sonarr.alastordeciditripley.com {
+    import forward_auth # Example: Protecting Sonarr
+    reverse_proxy sonarr:8989
+    encode zstd gzip
+}
+
+# Radarr Example
+radarr.alastordeciditripley.com {
+    import forward_auth # Example: Protecting Radarr
+    reverse_proxy radarr:7878
+    encode zstd gzip
+}
+
+# Lidarr Example
+lidarr.alastordeciditripley.com {
+    import forward_auth # Example: Protecting Lidarr
+    reverse_proxy lidarr:8686
+    encode zstd gzip
+}
+
+# Prowlarr Example
+prowlarr.alastordeciditripley.com {
+    import forward_auth # Example: Protecting Prowlarr
+    reverse_proxy prowlarr:9696
+    encode zstd gzip
+}
+
+# Homepage Example (Usually public)
+home.alastordeciditripley.com {
+    reverse_proxy homepage:3000
+    encode zstd gzip
+}
+
+# Add other existing services similarly
+stash.alastordeciditripley.com { 
+    import forward_auth
+    reverse_proxy stash:9999 
+    }
+# dozzle.alastordeciditripley.com { import forward_auth; reverse_proxy dozzle:8080 }
+kuma.alastordeciditripley.com {
+     import forward_auth; reverse_proxy uptime-kuma:3001 }
+request.alastordeciditripley.com { 
+    import forward_auth
+    reverse_proxy jellyseerr:5055 
+    }
+changedetection.alastordeciditripley.com {
+    import forward_auth
+    reverse_proxy changedetection:5000 
+    }
+
+# Authelia Portal (If accessed directly via subdomain - often not needed if using rd= query)
+# auth.alastordeciditripley.com {
+#    reverse_proxy authelia:9091
+# }

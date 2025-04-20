@@ -1,0 +1,18 @@
+version: "3.8"
+services:
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID={{2000}}
+      - PGID=2000
+      - TZ=America/New_York
+    volumes:
+      - /opt/podman-data/prowlarr/config:/config
+    ports:
+      # - "9696:9696" # Not needed, access via Caddy or Gluetun's network
+      pass
+    restart: unless-stopped
+    network_mode: "service:gluetun" # Route traffic through Gluetun VPN
+    depends_on:
+      - gluetun

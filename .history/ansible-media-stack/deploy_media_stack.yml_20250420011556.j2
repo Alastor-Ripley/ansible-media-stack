@@ -1,0 +1,287 @@
+---
+- name: Deploy Podman Media Stack with Systemd User Units
+  hosts: 192.168.50.135 # Target your Proxmox VM here
+  gather_facts: yes
+  become: yes # Most tasks need root, but container execution is user-level
+
+  vars:
+    # --- Core Setup ---
+    podman_user: "alastor" # CHANGE THIS
+    podman_group: "alastor" # CHANGE THIS
+    base_stack_dir: "/opt/podman-stacks"
+    base_data_dir: "/opt/podman-data"
+    user_puid: "1001" # CHANGE THIS
+    user_pgid:  # CHANGE THIS
+    timezone: "America/New_York" # CHANGE THIS
+
+    # --- Gluetun ---
+    vpn_provider: "nordvpn" # CHANGE THIS
+    vpn_type: "wireguard" # or openvpn
+
+    # --- Ports ---
+    endlessh_port: 2222
+    portainer_https_port: 9443
+
+    # --- Secrets (USE ANSIBLE VAULT!) ---
+    authelia_session_secret: "{{ authelia_session_secret }}"
+    authelia_jwt_secret:  "{{ authelia_jwt_secret }}"
+    authelia_storage_encryption_key: "{{ authelia_storage_encryption_key }}" # If encrypting storage like SQLite
+    borg_repo_passphrase: "{{ borg_repo_passphrase }}" # Borgmatic passphrase
+    vault_ionos_api_key: "{{ vault_ionos_api_key }}" # IONOS API key for DNS
+
+    # --- Tokens ---
+    gotify_app_token: "CHANGE_ME_GET_FROM_GOTIFY_UI" # For Diun
+
+    # --- Service Lists ---
+    # Define list of services with compose files
+    podman_services:
+      - jellyfin
+      - stash
+      - dozzle
+      - crowdsec
+      - caddy
+      - diun
+      - scrutiny
+      - uptime-kuma
+      - jellyseerr
+      - infra # Placeholder
+      - gluetun
+      - radarr
+      - sonarr
+      - lidarr
+      - prowlarr
+      - homepage
+      - changedetection
+      - unbound
+      - godns
+      - jackett
+      - flaresolverr
+      - endlessh
+      # --- New Services ---
+      - qbittorrent
+      - sabnzbd
+      - borgmatic
+      - authelia
+      - gotify
+      - portainer
+
+    # Define list of services needing persistent data directories on host
+    # Exclude services using only named volumes (like borgmatic cache/config if compose defines them)
+    # Exclude services needing special paths (like authentik multi-dir setup previously)
+    services_with_data_dirs:
+      - jellyfin/config
+      - jellyfin/cache
+      - jellyfin/media
+      - stash/config
+      - stash/generated
+      - stash/metadata
+      - stash/cache
+      - stash/blobs
+      - dozzle/config
+      - crowdsec/config
+      - crowdsec/data
+      - caddy/config
+      - caddy/data
+      - caddy/logs
+      - diun/config
+      - diun/data
+      - scrutiny/config
+      - scrutiny/influxdb
+      - uptime-kuma/data
+      - jellyseerr/config
+      - infra/config
+      - gluetun/config
+      - radarr/config
+      - sonarr/config
+      - lidarr/config
+      - prowlarr/config
+      - homepage/config
+      - changedetection/data
+      - unbound/config
+      - jackett/config
+      - jackett/downloads
+      - flaresolverr/config
+      - endlessh # Unused, but keeps structure consistent
+      # --- New Services ---
+      - qbittorrent/config
+      - sabnzbd/config
+      - borgmatic/config # Host dir for Ansible to copy config INTO named volume mount point
+      - authelia/config
+      - gotify/data
+      - portainer/data
+      - godns/config
+
+  tasks:
+    - name: Template GoDNS configuration file
+      ansible.builtin.template:
+        src: "stacks/godns/config.yml.j2" # Source is a Jinja2 template
+        dest: "{{ base_data_dir }}/godns/config/config.yml"
+        owner: "{{ podman_user }}"
+        group: "{{ podman_group }}"
+        mode: '0600' # Config contains secrets, restrict permissions
+    
+    - name: Template GoDNS Compose file
+      ansible.builtin.template:
+        src: "stacks/godns/compose.yml.j2"
+        dest: "{{ base_stack_dir }}/godns/compose.yml"
+        mode: '0644'
+
+    - name: Ensure base directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ base_stack_dir }}"
+        - "{{ base_data_dir }}"\
+
+    - name: Ensure dedicated group for Podman exists
+      ansible.builtin.group:
+        name: "{{ podman_group }}"
+        gid: 2000  # <--- ADD THIS LINE
+        state: present
+        
+    - name: Ensure dedicated user for Podman exists
+      ansible.builtin.user:
+        name: "{{ podman_user }}"
+        group: "{{ podman_group }}" # Uses the group name defined earlier
+        uid: 2000  # <--- ADD THIS LINE
+        shell: /bin/bash
+        state: present
+        create_home: yes
+
+    - name: Enable linger for the Podman user
+      ansible.builtin.command: "loginctl enable-linger {{ podman_user }}"
+      changed_when: false
+      failed_when: false
+
+    - name: Create data subdirectories for services
+      ansible.builtin.file:
+        path: "{{ base_data_dir }}/{{ item }}"
+        state: directory
+        owner: "{{ podman_user }}"
+        group: "{{ podman_group }}"
+        mode: '0775'
+      loop: "{{ services_with_data_dirs }}"
+
+    - name: Create stack subdirectories for compose files
+      ansible.builtin.file:
+        path: "{{ base_stack_dir }}/{{ item }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ podman_services }}" # Use the full list
+
+    # Copy config files FIRST (Caddyfile, Authelia, Borgmatic)
+    - name: Copy Caddyfile
+      ansible.builtin.copy:
+        src: "stacks/caddy/Caddyfile"
+        dest: "{{ base_data_dir }}/caddy/config/Caddyfile"
+        owner: "{{ podman_user }}"
+        group: "{{ podman_group }}"
+        mode: '0644'
+      notify: Restart Caddy Service
+
+    - name: Copy Authelia configuration (use template for secrets)
+      ansible.builtin.template: # Use template to inject secrets from Vault/vars
+        src: "stacks/authelia/configuration.yml.j2" # Source is a Jinja2 template
+        dest: "{{ base_data_dir }}/authelia/config/configuration.yml"
+        owner: "{{ podman_user }}"
+        group: "{{ podman_group }}"
+        mode: '0600' # Config contains secrets, restrict permissions
+      # NOTE: Rename your source configuration.yml to configuration.yml.j2 and add variables like:
+      # secret: "{{ authelia_session_secret }}"
+
+    - name: Copy Authelia users file (if managing static users)
+      ansible.builtin.copy: # Or template if needed
+        src: "stacks/authelia/users.yml" # Create this file
+        dest: "{{ base_data_dir }}/authelia/config/users.yml"
+        owner: "{{ podman_user }}"
+        group: "{{ podman_group }}"
+        mode: '0600' # Restrict permissions
+
+    - name: Copy Borgmatic configuration (use template for secrets)
+      ansible.builtin.template: # Use template for passphrase
+        src: "stacks/borgmatic/config.yml.j2" # Source is a Jinja2 template
+        dest: "{{ base_data_dir }}/borgmatic/config/config.yml"
+        owner: "{{ podman_user }}"
+        group: "{{ podman_group }}"
+        mode: '0600' # Restrict permissions
+      # NOTE: Rename your source config.yml to config.yml.j2 and add variables like:
+      # encryption_passphrase: "{{ borg_repo_passphrase }}"
+
+    # Template Diun compose if injecting Gotify token
+    - name: Template Diun compose file
+      ansible.builtin.template:
+        src: "stacks/diun/compose.yml.j2"
+        dest: "{{ base_stack_dir }}/diun/compose.yml"
+        mode: '0644'
+      # NOTE: Rename stacks/diun/compose.yml to compose.yml.j2 and use {{ gotify_app_token }}
+
+    # Copy remaining standard Compose files
+    - name: Copy standard Compose files to target host
+      ansible.builtin.copy:
+        src: "stacks/{{ item }}/compose.yml"
+        dest: "{{ base_stack_dir }}/{{ item }}/compose.yml"
+        mode: '0644'
+      loop: "{{ podman_services | difference(['diun', 'authelia', 'borgmatic', 'godns']) }}" # Exclude templated ones if using templates, adjust as needed if not templating
+      # If not templating Authelia/Borgmatic compose files, include them here.
+
+    - name: Ensure firewall allows required ports (using firewalld)
+      become: yes
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      loop:
+        - "80/tcp"  # Caddy HTTP
+        - "443/tcp" # Caddy HTTPS
+        - "443/udp" # Caddy HTTP/3
+        - "{{ endlessh_port }}/tcp" # Endlessh SSH Tarpit Port
+        - "{{ portainer_https_port }}/tcp" # Portainer HTTPS direct access
+      # when: ansible_facts.services['firewalld.service'] is defined and ansible_facts.services['firewalld.service'].state == 'running'
+
+    - name: Generate and manage systemd user units for each stack
+      ansible.builtin.command: >-
+        podman generate systemd --new --files --name {{ item }} {{ base_stack_dir }}/{{ item }}/compose.yml
+      args:
+        chdir: "/home/{{ podman_user }}"
+        creates: "/home/{{ podman_user }}/.config/systemd/user/{{ item }}.service"
+      become: yes
+      become_user: "{{ podman_user }}"
+      register: systemd_generate_result
+      changed_when: "'Created' in systemd_generate_result.stdout"
+      loop: "{{ podman_services }}" # Use the full list
+      notify: Reload Systemd User Daemon
+
+  handlers:
+    - name: Reload Systemd User Daemon
+      ansible.builtin.systemd:
+        scope: user
+        daemon_reload: yes
+      become: yes
+      become_user: "{{ podman_user }}"
+
+    - name: Restart Caddy Service
+      ansible.builtin.systemd:
+        scope: user
+        name: caddy.service
+        state: restarted
+      become: yes
+      become_user: "{{ podman_user }}"
+
+# --- Final Play Task: Explicitly enable and start all generated services ---
+- name: Ensure Podman services are enabled and started
+  hosts: 192.168.50.135
+  gather_facts: no
+  become: yes
+  become_user: "{{ podman_user }}"
+
+  tasks:
+    - name: Enable and start systemd user units
+      ansible.builtin.systemd:
+        scope: user
+        name: "{{ item }}.service"
+        enabled: yes
+        state: started # Borgmatic might fail if it exits immediately, consider 'state: enabled' only? Or add 'command: sleep infinity' to its compose.
+      loop: "{{ podman_services }}" # Use the full list
