@@ -1,0 +1,20 @@
+# ~/ansible-media-stack/stacks/authelia/users.yml
+users:
+  # This is the username the person will log in with
+  alastor:
+    displayname: "Alastor Ripley" # How the name appears in Authelia UI
+    # CRITICAL: Generate this hash using Authelia's tool! DO NOT use plain text.
+    password: value
+    email: alastorripley@gmail.com # Must be a valid email
+    groups:
+      - admins # Assign user to group(s)
+      - users
+
+  # Example of another user
+  # jane_doe:
+  #   displayname: "Jane Doe"
+  #   password: "$argon2id$v=19$m=65536,t=3,p=4$ANOTHERSALT$ANOTHERHASH"
+  #   email: jane@example.com
+  #   groups:
+  #     - users
+  #     - docs
