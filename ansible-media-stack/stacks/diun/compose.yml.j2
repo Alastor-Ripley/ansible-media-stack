@@ -1,0 +1,26 @@
+# (Content is identical to the previous version provided for Diun with Gotify)
+version: "3.8"
+services:
+  diun:
+    image: crazymax/diun:latest
+    container_name: diun
+    volumes:
+      - "{{ base_data_dir }}/diun/data:/data"
+      - /run/user/{{ user_puid }}/podman/podman.sock:/var/run/docker.sock:ro
+    environment:
+      - TZ={{ timezone }}
+      - LOG_LEVEL=info
+      - DIUN_WATCH_WORKERS=10
+      - DIUN_WATCH_SCHEDULE="0 */6 * * *"
+      - DIUN_PROVIDERS_PODMAN=true
+      # --- ADDED: Gotify Notification ---
+      - DIUN_NOTIF_GOTIFY_ENDPOINT="http://gotify:80" # Internal hostname:container port
+      - DIUN_NOTIF_GOTIFY_TOKEN="{{ gotify_app_token }}"
+    restart: unless-stopped
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network
