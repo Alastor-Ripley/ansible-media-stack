@@ -1,0 +1,118 @@
+# Authelia Configuration (Simplified Example - Review Official Docs)
+# https://www.authelia.com/configuration/
+
+# MANDATORY: Define secrets via environment variables or Docker secrets in production
+# default_redirection_url: https://home.alastordeciditripley.com
+
+server:
+  host: 0.0.0.0
+  port: 9091
+
+log:
+  level: info
+
+# MANDATORY: Configure session domain, name, and secret
+session:
+  name: authelia_session
+  secret: "{{ authelia_session_secret }}" # Use Vault/env_file
+  expiration: 1h
+  inactivity: 30m
+  domain: alastordeciditripley.com # IMPORTANT: Set to your parent domain
+
+# MANDATORY: Configure JWT secret
+jwt_secret: "{{ authelia_jwt_secret }}" # Use Vault/env_file
+
+# Storage (e.g., SQLite)
+storage:
+  sqlite:
+    path: /config/db.sqlite3
+  # Or use PostgreSQL:
+  # postgres:
+  #   host: postgres # Service name of your postgres container
+  #   port: 5432
+  #   database: authelia
+  #   username: authelia
+  #   password: "YOUR_POSTGRES_PASSWORD_USE_VAULT"
+
+# Notifier (Example: SMTP - configure file provider for user passwords)
+# notifier:
+#   smtp:
+#     host: smtp.example.com
+#     port: 587
+#     sender: Authelia <authelia@alastordeciditripley.com>
+#     username: authelia@alastordeciditripley.com
+#     password: "YOUR_SMTP_PASSWORD_USE_VAULT"
+
+# Authentication backend (e.g., file-based)
+# MANDATORY: Create users.yml file
+authentication_backend:
+  file:
+    path: /config/users.yml
+    # password:
+    #   algorithm: argon2id # default
+    #   iterations: 1
+    #   salt_length: 16
+    #   parallelism: 4
+    #   memory: 64 # MiB
+
+# Access control rules (Define default and per-domain rules)
+# MANDATORY: Define rules
+access_control:
+  default_policy: deny # Or 'two_factor' or 'one_factor'
+  rules:
+    # Example: Allow public access to homepage
+    - domain: "home.alastordeciditripley.com"
+      policy: bypass
+    # Example: Require two factors for sonarr
+    - domain: "sonarr.alastordeciditripley.com"
+      policy: two_factor
+    # Example: Require one factor for internal tool
+    - domain: "portainer.alastordeciditripley.com"
+      policy: one_factor
+          # --- ADD RULES FOR THE REST ---
+    - domain: "gotify.alastordeciditripley.com"
+      policy: one_factor # Or two_factor
+
+    - domain: "jellyfin.alastordeciditripley.com"
+      policy: one_factor # Or two_factor (consider Jellyfin's own login)
+
+    - domain: "radarr.alastordeciditripley.com"
+      policy: one_factor # Or two_factor
+
+    - domain: "lidarr.alastordeciditripley.com"
+      policy: one_factor # Or two_factor
+
+    - domain: "prowlarr.alastordeciditripley.com"
+      policy: one_factor # Or two_factor
+
+    - domain: "stash.alastordeciditripley.com"
+      policy: one_factor # Or two_factor
+
+    - domain: "request.alastordeciditripley.com"  # Jellyseerr
+      policy: one_factor # Or two_factor
+
+    - domain: "changedetection.alastordeciditripley.com"
+      policy: one_factor # Or two_factor
+
+    # --- Optional: Add rules for services currently commented out in Caddyfile ---
+    # If you uncomment dozzle in Caddyfile, add this:
+    # - domain: "dozzle.alastordeciditripley.com"
+    #   policy: one_factor # Or two_factor
+
+    # If you uncomment kuma in Caddyfile, add this:
+    # - domain: "kuma.alastordeciditripley.com"
+    #   policy: one_factor # Or two_factor
+
+
+# Regulation (prevents brute-force attacks)
+regulation:
+  max_retries: 3
+  find_time: 2m
+  ban_time: 5m
+
+# TOTP (for 2FA)
+totp:
+  issuer: alastordeciditripley.com
+
+# Default 2FA Method
+default_2fa_method: "totp"

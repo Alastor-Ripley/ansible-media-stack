@@ -1,0 +1,25 @@
+version: "3.8"
+services:
+  infra:
+    image: some/infra-image:latest # CHANGE THIS to your actual image
+    container_name: infra
+    environment:
+      - PUID={{ user_puid }}
+      - 
+      - PGID=2000
+      - TZ=America/New_York
+      # - OTHER_ENV_VARS=needed_by_image
+    volumes:
+      - /opt/podman-data/infra/config:/config # Adjust path as needed
+      # - /opt/podman-data/infra/data:/data # Adjust path as needed
+    ports:
+      # - "XXXX:YYYY" # Expose ports if needed
+      pass
+    restart: unless-stopped
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network

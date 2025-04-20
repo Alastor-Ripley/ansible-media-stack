@@ -1,0 +1,29 @@
+version: "3.8"
+services:
+  caddy:
+    image: caddy:latest
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # Needed for HTTP/3
+    volumes:
+      - /opt/podman-data/caddy/config/Caddyfile:/etc/caddy/Caddyfile # Mount your Caddyfile
+      - /opt/podman-data/caddy/data:/data # Persists certificates etc.
+      - /opt/podman-data/caddy/config:/config # Caddy config storage
+      - /opt/podman-data/caddy/logs:/var/log/caddy # Log storage (optional)
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      # Add ACME DNS provider tokens if using DNS challenge
+      # - LEGO_DNS_PROVIDER=cloudflare
+      # - CLOUDFLARE_API_TOKEN=your_token
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network

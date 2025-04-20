@@ -1,0 +1,24 @@
+version: "3.8"
+services:
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=2000
+      - PGID=2000
+      - TZ=America/New_York
+    volumes:
+      - /opt/podman-data/radarr/config:/config
+      # Mount your downloads folder(s) - must match download client container path
+      - /path/to/your/downloads:/downloads # Example
+      # Mount your final media library folder(s)
+      - /path/to/your/real/media/movies:/movies # Example
+    ports:
+      # - "7878:7878" # Not needed, access via Caddy or Gluetun's network
+      pass
+    restart: unless-stopped
+    network_mode: "service:gluetun" # Route traffic through Gluetun VPN
+    depends_on:
+      - gluetun
+
+# No networks defined here, uses gluetun's network stack

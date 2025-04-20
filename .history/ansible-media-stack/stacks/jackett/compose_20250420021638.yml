@@ -1,0 +1,21 @@
+version: "3.8"
+services:
+  jackett:
+    image: linuxserver/jackett:latest
+    container_name: jackett
+    environment:
+      - PUID={{ user_puid }}
+      - PGID={{ user_pgid }}
+      - PGID=2000
+      - TZ=America/New_York
+      - AUTO_UPDATE=true # Optional: Enable internal updater
+    volumes:
+      - /opt/podman-data/jackett/config:/config
+      - /opt/podman-data/jackett/downloads:/downloads # Blackhole directory
+    ports:
+      # - "9117:9117" # Not needed, access via Prowlarr/Gluetun network
+      pass
+    restart: unless-stopped
+    network_mode: "service:gluetun" # Route traffic through Gluetun VPN
+    depends_on:
+      - gluetun

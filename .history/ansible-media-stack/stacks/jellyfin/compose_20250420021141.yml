@@ -1,0 +1,40 @@
+version: "3.8"
+services:
+  jellyfin:
+    image: bitwrk/jellyfin-rffmpeg:latest
+    container_name: jellyfin
+    environment:
+      - PUID=2000 # Change to var.user_puid
+      - PGID=2000 # Change to var.user_pgid
+      - TZ=America/New_York # Change to var.timezone
+      - JELLYFIN_PublishedServerUrl=http://your_jellyfin_domain_or_ip # Optional: Helps with discovery
+    volumes:
+      - /opt/podman-data/jellyfin/config:/config
+      - /opt/podman-data/jellyfin/cache:/cache
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/Movies-4-The-Folders-Revenge:/Videos/Movies-4-The-Folders-Revenge
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/TV-4-The-Next-Generation:/Videos/TV-4-The-Next-Generation
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/UHD-Movies-A-New-Beginning:/Videos/UHD-Movies-A-New-Beginning
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/UHD-TV-Lucys-Tits:/Videos/UHD-TV-Lucys-Tits
+      - /home/alastor/Paul-McGann/Videos/Movies\ 2\ -\ The\ Foldering:/Videos/Movies-2-The-Foldering
+      - /home/alastor/Paul-McGann/Videos/Movies\ 3\ -\ The\ Final\ Folder:/Videos/Movies-3-The-Final-Folder
+      - /home/alastor/Paul-McGann/Videos/TV\ 2\ -\ Electric\ Boogaloo:/Videos/TV-2-Electric-Boogaloo
+      - /home/alastor/Paul-McGann/Videos/TV\ 3\ -\ The\ Search\ for\ Spock:/Videos/TV-3-The-Search-For-Spock
+      - /home/alastor/Tom-Baker/Downloads:/Videos/Downloading
+    ports:
+      # - "8096:8096" # Expose only if direct access needed (besides Caddy)
+      # - "8920:8920" # Optional: HTTPS - Expose only if direct access needed
+      - "1900:1900/udp" # Optional: DLNA Service Discovery
+      - "7359:7359/udp" # Optional: Client Discovery
+    devices:
+      # Nvidia GPU Hardware Acceleration via CDI
+      - "nvidia.com/gpu=all"
+      # Optional: Intel QuickSync / AMD VA-API (if applicable and configured on host)
+      # - "/dev/dri:/dev/dri"
+    restart: unless-stopped
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true # Assumes network is created elsewhere or by another compose file
+    name: media_network

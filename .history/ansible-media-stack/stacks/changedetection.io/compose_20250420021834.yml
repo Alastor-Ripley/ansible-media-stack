@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  changedetection:
+    image: dgtlmoon/changedetection.io:latest
+    container_name: changedetection
+    environment:
+      - PUID={{ user_puid }} # May not be respected, check image docs
+      - PGID=2000 # May not be respected, check image docs
+      - TZ=America/New_York
+      # Optional: Use Playwright/WebDriver for JS rendering (requires Flaresolverr or similar)
+      # - WEBDRIVER_URL=http://flaresolverr:8191/v1
+      # - PLAYWRIGHT_DRIVER_URL=ws://browserless:3000 # If using browserless/chrome
+    volumes:
+      - /opt/podman-data/changedetection/data:/datastore
+    ports:
+      # - "5000:5000" # Expose only if direct access needed (besides Caddy)
+      pass
+    restart: unless-stopped
+    # network_mode: "service:gluetun" # Optional: Route checks through VPN
+    networks: # Use default network if not routing through VPN
+      - media_network
+    # depends_on: # Add Flaresolverr if using it for rendering
+    #   - flaresolverr
+
+networks:
+  media_network:
+    external: true
+    name: media_network

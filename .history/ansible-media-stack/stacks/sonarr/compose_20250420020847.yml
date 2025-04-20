@@ -1,0 +1,27 @@
+version: "3.8"
+services:
+  sonarr:
+    image: linuxserver/sonarr:latest # Use v3 or v4 image explicitly if needed: linuxserver/sonarr:preview
+    container_name: sonarr
+    environment:
+      - PUID=2000
+      - PGID=2000
+      - TZ=America/New_York
+    volumes:
+      - /opt/podman-data/sonarr/config:/config
+      - /path/to/your/downloads:/downloads # Example - MUST match download client path
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/Movies-4-The-Folders-Revenge:/Videos/Movies-4-The-Folders-Revenge
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/TV-4-The-Next-Generation:/Videos/TV-4-The-Next-Generation
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/UHD-Movies-A-New-Beginning:/Videos/UHD-Movies-A-New-Beginning
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/UHD-TV-Lucys-Tits:/Videos/UHD-TV-Lucys-Tits
+      - /home/alastor/Paul-McGann/Videos/Movies\ 2\ -\ The\ Foldering:/Videos/Movies-2-The-Foldering
+      - /home/alastor/Paul-McGann/Videos/Movies\ 3\ -\ The\ Final\ Folder:/Videos/Movies-3-The-Final-Folder
+      - /home/alastor/Paul-McGann/Videos/TV\ 2\ -\ Electric\ Boogaloo:/Videos/TV-2-Electric-Boogaloo
+      - /home/alastor/Paul-McGann/Videos/TV\ 3\ -\ The\ Search\ for\ Spock:/Videos/TV-3-The-Search
+    ports:
+      # - "8989:8989" # Not needed, access via Caddy or Gluetun's network
+      pass
+    restart: unless-stopped
+    network_mode: "service:gluetun" # Route traffic through Gluetun VPN
+    depends_on:
+      - gluetun
