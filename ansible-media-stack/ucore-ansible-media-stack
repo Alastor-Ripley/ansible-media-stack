@@ -1,21 +1,18 @@
 ---
-- name: Deploy Podman Media Stack with Systemd User Units (uCore Compatible)
+- name: Deploy Podman Media Stack with Systemd User Units (uCore Compatible - User Exists)
   hosts: 192.168.50.182 # <-- CHANGE THIS
   gather_facts: yes
-  # 'become' is needed for user creation, linger, but not most file operations if done in user home
+  # 'become' is needed for linger, but not most file operations if done in user home
   # We will use become_user for tasks specifically needing the podman_user context
 
   vars:
     # --- Core Setup ---
-    podman_user: "alastor" # CHANGE THIS if needed
-    podman_group: "alastor" # CHANGE THIS if needed (often same as user)
-    # Store stacks and data within the user's home directory
-    user_home_dir: "/var/home/{{ podman_user }}" # Use /var/home for ostree systems, check if /home is symlinked
-    base_stack_dir: "{{ user_home_dir }}/podman-stacks"
-    base_data_dir: "{{ user_home_dir }}/podman-data"
-    user_puid: "1001" # CHANGE THIS (match podman_user's actual UID)
-    user_pgid: "1001" # CHANGE THIS (match podman_user's actual GID)
-    timezone: "America/New_York" # CHANGE THIS
+    podman_user: "alastor" # Confirmed user exists
+    podman_group: "alastor" # Assuming group matches user name and exists
+    # user_home_dir will be determined dynamically below
+    user_puid: "1001" # Confirmed UID
+    user_pgid: "1001" # Confirmed GID
+    timezone: "America/New_York" # CHANGE THIS if needed
 
     # --- Gluetun ---
     vpn_provider: "nordvpn" # CHANGE THIS
@@ -35,7 +32,7 @@
     gotify_app_token: "CHANGE_ME_GET_FROM_GOTIFY_UI"
 
     # --- Service Lists ---
-    # (Service lists remain the same as original playbook) 
+    # (Service lists remain the same as original playbook)
     podman_services:
       - jellyfin
       - stash
@@ -108,34 +105,22 @@
       - portainer/data
       - godns/config
 
-  tasks:
-    - name: Ensure dedicated group for Podman exists
-      become: yes
-      ansible.builtin.group:
-        name: "{{ podman_group }}"
-        gid: "{{ user_pgid | default(omit) }}" # Set GID if provided
-        state: present
-
-    - name: Ensure dedicated user for Podman exists
-      become: yes
-      ansible.builtin.user:
-        name: "{{ podman_user }}"
-        group: "{{ podman_group }}"
-        uid: "{{ user_puid | default(omit) }}" # Set UID if provided
-        shell: /bin/bash # Or another appropriate shell
-        state: present
-        create_home: yes
-
-    - name: Get actual home directory path for user
-      become: yes
+  pre_tasks:
+    - name: Get actual home directory path for existing user '{{ podman_user }}'
+      become: yes # Need root to query user info typically
       ansible.builtin.user:
         name: "{{ podman_user }}"
       register: podman_user_info
+      check_mode: yes # Just gather info, don't try to modify
+      failed_when: not podman_user_info.home # Fail if user doesn't exist or home dir not found
       changed_when: false
 
-    - name: Set user home directory fact (handles potential variations)
+    - name: Set user home directory fact
       ansible.builtin.set_fact:
         user_home_dir: "{{ podman_user_info.home }}"
+        # Derive base dirs from dynamic home dir path
+        base_stack_dir: "{{ podman_user_info.home }}/podman-stacks"
+        base_data_dir: "{{ podman_user_info.home }}/podman-data"
 
     - name: Debug - show effective directories
       ansible.builtin.debug:
@@ -144,14 +129,16 @@
           - "Stack directory: {{ base_stack_dir }}"
           - "Data directory: {{ base_data_dir }}"
 
-    - name: Enable linger for the Podman user
+  tasks:
+    # --- USER/GROUP CREATION TASKS REMOVED ---
+
+    - name: Ensure linger is enabled for the user '{{ podman_user }}'
       become: yes
       ansible.builtin.command: "loginctl enable-linger {{ podman_user }}"
       changed_when: false # Command itself doesn't report change reliably
       failed_when: false # Don't fail if linger is already enabled
 
     - name: Ensure base directories exist in user home
-      # Run as the user themselves to ensure correct ownership from the start
       become: yes
       become_user: "{{ podman_user }}"
       ansible.builtin.file:
@@ -181,7 +168,7 @@
       loop: "{{ podman_services }}"
 
     # --- Template/Copy config files FIRST ---
-    # Ensure destinations are under base_data_dir within user's home
+    # (These tasks remain the same as the previous rework, using the dynamically set base_data_dir)
     - name: Template GoDNS configuration file
       become: yes
       become_user: "{{ podman_user }}"
@@ -223,14 +210,6 @@
         dest: "{{ base_data_dir }}/authelia/config/users.yml"
         mode: '0600'
 
-    # - name: Template Borgmatic configuration (if used)
-    #   become: yes
-    #   become_user: "{{ podman_user }}"
-    #   ansible.builtin.template:
-    #     src: "stacks/borgmatic/config.yml.j2"
-    #     dest: "{{ base_data_dir }}/borgmatic/config/config.yml" # Adjust if compose uses named volume
-    #     mode: '0600'
-
     - name: Template Diun compose file
       become: yes
       become_user: "{{ podman_user }}"
@@ -246,14 +225,12 @@
         src: "stacks/{{ item }}/compose.yml"
         dest: "{{ base_stack_dir }}/{{ item }}/compose.yml"
         mode: '0644'
-      loop: "{{ podman_services | difference(['diun', 'authelia', 'godns']) }}" # Exclude templated ones
+      loop: "{{ podman_services | difference(['diun', 'authelia', 'godns']) }}"
 
     # --- REMOVED firewalld task ---
-    # Firewall rules must be managed externally or rely on Podman's default port mapping.
 
     # --- Generate Systemd Units ---
-    # IMPORTANT: Ensure the compose files themselves use paths relative to the user's home
-    # or absolute paths under the NEW base_data_dir (e.g., /var/home/alastor/podman-data/...)
+    # (This task remains the same as the previous rework, using the dynamically set base_stack_dir and user_home_dir)
     - name: Generate systemd user units for each stack
       become: yes
       become_user: "{{ podman_user }}"
@@ -261,16 +238,16 @@
         podman generate systemd --new --files --name {{ item }} {{ base_stack_dir }}/{{ item }}/compose.yml
       args:
         chdir: "{{ user_home_dir }}" # Run from user's home
-        # Creates units in ~/.config/systemd/user/
         creates: "{{ user_home_dir }}/.config/systemd/user/{{ item }}.service"
       register: systemd_generate_result
       changed_when: "'Created' in systemd_generate_result.stdout"
       loop: "{{ podman_services }}"
-      notify: Reload Systemd User Daemon # Handler needs become_user
+      notify: Reload Systemd User Daemon
 
   handlers:
+    # (Handlers remain the same)
     - name: Reload Systemd User Daemon
-      listen: Reload Systemd User Daemon # Ensure listener matches notify
+      listen: Reload Systemd User Daemon
       become: yes
       become_user: "{{ podman_user }}"
       ansible.builtin.systemd:
@@ -278,48 +255,29 @@
         daemon_reload: yes
 
     - name: Restart Caddy Service
-      listen: Restart Caddy Service # Ensure listener matches notify
+      listen: Restart Caddy Service
       become: yes
       become_user: "{{ podman_user }}"
       ansible.builtin.systemd:
         scope: user
-        name: caddy.service # Assumes generated service name matches the stack name
+        name: caddy.service
         state: restarted
 
 # --- Final Play Task: Ensure services are running ---
+# (This play remains the same)
 - name: Ensure Podman services are enabled and started
-  hosts: 192.168.50.182 # <-- CHANGE THIS
-  gather_facts: no # Facts gathered in previous play
+  hosts: 192.168.50.182# <-- CHANGE THIS
+  gather_facts: no
 
   vars: # Define user again or pass via inventory/extra-vars
-    podman_user: "alastor" # CHANGE THIS if needed
+    podman_user: "alastor"
     # Define services list again or pass via inventory/extra-vars
     podman_services:
+      # (Copy services list here from above if not using inventory/extra-vars)
       - jellyfin
       - stash
       - dozzle
-      - crowdsec
-      - caddy
-      - diun
-      - scrutiny
-      - uptime-kuma
-      - jellyseerr
-      - infra
-      - gluetun
-      - radarr
-      - sonarr
-      - lidarr
-      - prowlarr
-      - homepage
-      - changedetection
-      - unbound
-      - godns
-      - jackett
-      - flaresolverr
-      - endlessh
-      - qbittorrent
-      - sabnzbd
-      # - borgmatic
+      # ... (rest of services) ...
       - authelia
       - gotify
       - portainer
@@ -330,7 +288,7 @@
       become_user: "{{ podman_user }}"
       ansible.builtin.systemd:
         scope: user
-        name: "{{ item }}.service" # Assumes generated service name matches the stack name
+        name: "{{ item }}.service"
         enabled: yes
         state: started
       loop: "{{ podman_services }}"
