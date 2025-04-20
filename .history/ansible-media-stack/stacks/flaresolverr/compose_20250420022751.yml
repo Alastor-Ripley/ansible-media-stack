@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  flaresolverr:
+    image: flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - PUID={{ user_puid }} # Check image docs
+      - PGID={{ user_pgid }} # Check image docs
+      - LOG_LEVEL=info
+      - TZ=America/New_York
+      # - CAPTCHA_SOLVER= # Configure if using hCaptcha etc. solver services
+    ports:
+      # - "8191:8191" # Not needed, accessed internally by Prowlarr/Changedetection etc.
+      pass
+    # volumes: # Usually stateless, but can persist config if needed
+    #  - /opt/podman-data/flaresolverr/config:/config
+    restart: unless-stopped
+    network_mode: "service:gluetun" # Route traffic through Gluetun VPN
+    depends_on:
+      - gluetun

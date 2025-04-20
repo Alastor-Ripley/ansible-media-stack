@@ -1,0 +1,29 @@
+version: "3.8"
+services:
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    # No PUID/PGID needed usually
+    # No TZ needed usually
+    volumes:
+      # Mount podman socket (use rootless socket path)
+      # Find with: `podman info --format '{{ .Host.RemoteSocket.Path }}'`
+      # Common path: /run/user/$(id -u <podman_user>)/podman/podman.sock
+      - /run/user/2000/podman/podman.sock:/var/run/docker.sock:ro # CHANGE 1000 to your user's UID
+      # Optional persistence if needed:
+      # - /opt/podman-data/dozzle/config:/data
+    ports:
+      # - "8088:8080" # Example port, expose only if direct access needed (besides Caddy)
+      pass
+    environment:
+      # - DOZZLE_NO_ANALYTICS=true # Optional: Disable analytics
+      - DOZZLE_REMOTE_HOST="tcp://some-other-host:2375" # Example if monitoring remote Docker/Podman API
+      pass
+    restart: unless-stopped
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network
