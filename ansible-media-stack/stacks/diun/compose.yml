@@ -15,7 +15,7 @@ services:
       - DIUN_PROVIDERS_PODMAN=true
       # --- ADDED: Gotify Notification ---
       - DIUN_NOTIF_GOTIFY_ENDPOINT="http://gotify:80" # Internal hostname:container port
-      - DIUN_NOTIF_GOTIFY_TOKEN="{{ gotify_app_token }}" # Use Ansible variable
+      - DIUN_NOTIF_GOTIFY_TOKEN="{{ gotify_app_token }}"
     restart: unless-stopped
     networks:
       - media_network
