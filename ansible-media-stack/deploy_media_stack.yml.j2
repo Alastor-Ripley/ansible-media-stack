@@ -1,6 +1,6 @@
 ---
 - name: Deploy Podman Media Stack with Systemd User Units
-  hosts: 192.168.50.135 # Target your Proxmox VM here
+  hosts: 192.168.50.182 # Target your Proxmox VM here
   gather_facts: yes
   become: yes # Most tasks need root, but container execution is user-level
 
@@ -272,7 +272,7 @@
 
 # --- Final Play Task: Explicitly enable and start all generated services ---
 - name: Ensure Podman services are enabled and started
-  hosts: 192.168.50.135
+  hosts: 192.168.50.182
   gather_facts: no
   become: yes
   become_user: "{{ podman_user }}"
