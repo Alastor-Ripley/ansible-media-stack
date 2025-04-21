@@ -2,6 +2,8 @@
 - name: Deploy Podman Media Stack with Systemd User Units (uCore Compatible - User Exists)
   hosts: 192.168.50.182 # Your VM IP
   gather_facts: yes
+  # 'become' is needed for linger, firewall, but not most file operations if done in user home
+  become: yes # Become needed globally for firewall task now
 
   vars:
     # --- Core Setup ---
@@ -29,8 +31,8 @@
     authelia_storage_encryption_key: "{{ authelia_storage_encryption_key }}"
     vault_ionos_api_key: "{{ vault_ionos_api_key }}"
     # Add vault variables for NordVPN keys, Recyclarr API keys etc.
-    vault_nordvpn_wg_private_key: "{{ vault_nordvpn_wg_private_key }}"
-    vault_nordvpn_wg_address: "{{ vault_nordvpn_wg_address }}"
+    # vault_nordvpn_wg_private_key: "CHANGE_ME_IN_VAULT"
+    # vault_nordvpn_wg_address: "CHANGE_ME_IN_VAULT"
     # vault_radarr_api_key: "CHANGE_ME_IN_VAULT"
     # vault_sonarr_api_key: "CHANGE_ME_IN_VAULT"
     # vault_lidarr_api_key: "CHANGE_ME_IN_VAULT"
@@ -38,7 +40,7 @@
     # --- Tokens ---
     gotify_app_token: "CHANGE_ME_GET_FROM_GOTIFY_UI"
 
-    # --- Service Lists (ADD NEW SERVICES) ---
+    # --- Service Lists ---
     podman_services:
       - jellyfin
       - stash
@@ -68,16 +70,13 @@
       - authelia
       - gotify
       - portainer
-      # --- Newly Added Services ---
       - tdarr
       - whisparr
       - recyclarr
       - autobrr
       - octoprint
 
-    # Add data dirs for new services
     services_with_data_dirs: # Relative paths under base_data_dir
-      # --- Existing ---
       - jellyfin/config
       - jellyfin/cache
       # - jellyfin/media # Media itself isn't usually under base_data_dir
@@ -118,7 +117,6 @@
       - gotify/data
       - portainer/data
       - godns/config
-      # --- Newly Added ---
       - tdarr/server
       - tdarr/configs
       - tdarr/logs
@@ -126,12 +124,10 @@
       - recyclarr/config
       - autobrr/config
       - octoprint/data
-      # --- Named Volume Dirs (Handled by Podman/Compose) ---
-      # - borgmatic_cache # Example if using named volume
 
   pre_tasks:
     - name: Get actual home directory path for existing user '{{ podman_user }}'
-      become: yes
+      become: yes # Needs root to query usually
       ansible.builtin.user:
         name: "{{ podman_user }}"
       register: podman_user_info
@@ -144,7 +140,7 @@
         user_home_dir: "{{ podman_user_info.home }}"
         base_stack_dir: "{{ podman_user_info.home }}/podman-stacks"
         base_data_dir: "{{ podman_user_info.home }}/podman-data"
-        cacheable: yes # Make facts reusable in second play
+        cacheable: yes
 
   tasks:
     - name: Ensure linger is enabled for the user '{{ podman_user }}'
@@ -216,17 +212,15 @@
         dest: "{{ base_data_dir }}/authelia/config/users.yml"
         mode: '0600'
 
-    # ADDED: Template Recyclarr config file
     - name: Template Recyclarr configuration file
       become: yes
       become_user: "{{ podman_user }}"
       ansible.builtin.template:
-        src: "stacks/recyclarr/config.yml.j2" # Needs API keys from Vault
+        src: "stacks/recyclarr/config.yml.j2"
         dest: "{{ base_data_dir }}/recyclarr/config/recyclarr.yml"
         mode: '0600'
 
     # --- Template/Copy Compose files ---
-    # List services whose compose files need templating (usually for secrets)
     - name: Template Compose files with sensitive data
       become: yes
       become_user: "{{ podman_user }}"
@@ -235,19 +229,15 @@
         dest: "{{ base_stack_dir }}/{{ item }}/compose.yml"
         mode: '0644'
       loop:
-        - godns # Uses Vault var for API key in config, but template compose too
-        - diun # Uses Vault var for gotify token
-        - gluetun # Uses Vault var for VPN key/address
-        # Add others if their compose file needs templating (e.g., Portainer if socket path is variable)
-        # - tdarr # If templating PUID/etc or secrets
-        # - whisparr
-        # - recyclarr
-        # - autobrr
-        # - octoprint
-        # - gotify
-        # - portainer
+        # List services whose compose files need templating
+        - godns
+        - diun
+        - gluetun
+        # Add others if needed (Tdar, Whisparr, Recyclarr, Autobrr, Octoprint...)
+        # Example:
+        # - tdarr
+        # - recyclarr # If compose needs templating
 
-    # List services whose compose file can be copied directly
     - name: Copy standard Compose files to target host
       become: yes
       become_user: "{{ podman_user }}"
@@ -257,7 +247,36 @@
         mode: '0644'
       loop: >
         {{ podman_services |
-           difference(['godns', 'diun', 'gluetun']) }} # Exclude templated ones
+           difference(['godns', 'diun', 'gluetun']) }} # UPDATE THIS list if you template more compose files above
+
+    # --- CONFIGURE FIREWALL ---
+    - name: Ensure firewall allows required ports (using firewalld)
+      become: yes # This task MUST run as root
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      loop:
+        # Essential Ports:
+        - "80/tcp"  # Caddy HTTP
+        - "443/tcp" # Caddy HTTPS
+        - "443/udp" # Caddy HTTP/3
+        - "{{ endlessh_port }}/tcp" # Endlessh SSH Tarpit Port
+        - "{{ portainer_https_port }}/tcp" # Portainer HTTPS direct access
+
+        # Optional Ports (Only if direct access needed AND not proxied by Caddy):
+        # - "53/tcp"  # Unbound DNS (if used externally)
+        # - "53/udp"  # Unbound DNS (if used externally)
+        # - "5000/tcp" # Octoprint Web UI (if accessed directly)
+        # - "8080/tcp" # Octoprint Webcam (if accessed directly)
+        # - "8265/tcp" # Tdarr Web UI (if accessed directly)
+        # - "6969/tcp" # Whisparr Web UI (if accessed directly)
+        # Add other specific ports here if needed (e.g., Gluetun forwarded ports)
+
+      # Optional: Add condition if firewalld might not be installed/running
+      # when: ansible_facts.services['firewalld.service'] is defined and ansible_facts.services['firewalld.service'].state == 'running'
+      # Note: If using ufw, replace this task with the ansible.builtin.ufw module.
 
     # --- Generate Systemd Units ---
     - name: Generate systemd user units for each stack
@@ -295,16 +314,17 @@
 - name: Ensure Podman services are enabled and started
   hosts: 192.168.50.182 # Use correct host IP
   gather_facts: no
-  # No vars needed if facts are cached from previous play
+  # Use cached facts if needed, especially podman_user
+  # vars: # Define user again or pass via inventory/extra-vars
+  #   podman_user: "alastor"
 
   tasks:
     - name: Enable and start systemd user units
       become: yes
-      become_user: "{{ hostvars[inventory_hostname]['podman_user'] | default('alastor') }}" # Get user from hostvars if possible
+      become_user: "{{ hostvars[inventory_hostname]['podman_user'] | default('alastor') }}" # Get user from cached facts or default
       ansible.builtin.systemd:
         scope: user
         name: "{{ item }}.service"
         enabled: yes
         state: started
-      # Loop over services defined in hostvars if possible, or redefine list
-      loop: "{{ hostvars[inventory_hostname]['podman_services'] | default(['jellyfin', 'stash', 'dozzle', 'crowdsec', 'caddy', 'diun', 'scrutiny', 'uptime-kuma', 'jellyseerr', 'infra', 'gluetun', 'radarr', 'sonarr', 'lidarr', 'prowlarr', 'homepage', 'changedetection', 'unbound', 'godns', 'jackett', 'flaresolverr', 'endlessh', 'qbittorrent', 'sabnzbd', 'authelia', 'gotify', 'portainer', 'tdarr', 'whisparr', 'recyclarr', 'autobrr', 'octoprint']) }}"
+      loop: "{{ hostvars[inventory_hostname]['podman_services'] }}" # Get service list from cached facts
