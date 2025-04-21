@@ -15,7 +15,7 @@ services:
     volumes:
       - "{{ base_data_dir }}/whisparr/config:/config"
       # Mount the parent download/video directory (consistent internal path)
-      - /path/to/your/videos:/data # CHANGE HOST PATH
+      - /home/alastor/Paul-McGann/Porn:/Media # CHANGE HOST PATH
     ports:
       - "6969:6969" # Default Whisparr port (expose only if needed directly)
     networks:

@@ -1,0 +1,28 @@
+# stacks/recyclarr/config.yml.j2
+# Basic structure - Refer to Recyclarr documentation for full options!
+# https://recyclarr.dev/wiki/config-reference/
+
+# Define API keys securely, perhaps using !secret tags if supported
+# or mount secrets as files. For simplicity with Ansible Vault,
+# you might template API keys directly here (use mode 0600 for the file).
+
+# Use internal container paths for *arr config directories mounted in compose
+radarr:
+  default: # Instance name
+    base_url: http://radarr:7878 # Use container name and internal port
+    api_key: "{{ vault_radarr_api_key }}" # ADD THIS KEY TO VAULT
+    # Define Trash Guides sync settings here...
+    # quality_profiles: ... etc ...
+
+sonarr:
+  default: # Instance name
+    base_url: http://sonarr:8989 # Use container name and internal port
+    api_key: "{{ vault_sonarr_api_key }}" # ADD THIS KEY TO VAULT
+    # Define Trash Guides sync settings here...
+    # quality_profiles: ... etc ...
+
+# Add lidarr section similarly if desired
+# lidarr:
+#   default:
+#     base_url: http://lidarr:8686
+#     api_key: "{{ vault_lidarr_api_key }}" # ADD THIS KEY TO VAULT

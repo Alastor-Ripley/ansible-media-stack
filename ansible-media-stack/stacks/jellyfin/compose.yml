@@ -9,8 +9,8 @@ services:
       - TZ=America/New_York # Change to var.timezone
       - JELLYFIN_PublishedServerUrl=http://your_jellyfin_domain_or_ip # Optional: Helps with discovery
     volumes:
-      - /opt/podman-data/jellyfin/config:/config
-      - /opt/podman-data/jellyfin/cache:/cache
+      - "{{ base_data_dir }}/jellyfin/config:/config"
+      - "{{ base_data_dir }}/jellyfin/cache:/cache"
       - /home/alastor/Sylvester-McCoy/Mine/Videos/Movies-4-The-Folders-Revenge:/Videos/Movies-4-The-Folders-Revenge
       - /home/alastor/Sylvester-McCoy/Mine/Videos/TV-4-The-Next-Generation:/Videos/TV-4-The-Next-Generation
       - /home/alastor/Sylvester-McCoy/Mine/Videos/UHD-Movies-A-New-Beginning:/Videos/UHD-Movies-A-New-Beginning

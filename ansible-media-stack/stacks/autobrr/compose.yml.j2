@@ -1,0 +1,25 @@
+# stacks/autobrr/compose.yml.j2
+version: "3.8"
+services:
+  autobrr:
+    image: ghcr.io/autobrr/autobrr:latest
+    container_name: autobrr
+    restart: unless-stopped
+    user: "{{ user_puid }}:{{ user_pgid }}" # Run as podman_user
+    environment:
+      - TZ={{ timezone }}
+    volumes:
+      - "{{ base_data_dir }}/autobrr/config:/config"
+    ports:
+      - "7474:7474" # Default Autobrr port (expose only if needed directly)
+    networks:
+      - media_network
+    # If Autobrr needs to go through VPN (e.g., for certain trackers):
+    # network_mode: "service:gluetun"
+    # depends_on:
+    #  - gluetun
+
+networks:
+  media_network:
+    external: true
+    name: media_network

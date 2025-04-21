@@ -9,10 +9,10 @@ services:
       - "443:443"
       - "443:443/udp" # Needed for HTTP/3
     volumes:
-      - /opt/podman-data/caddy/config/Caddyfile:/etc/caddy/Caddyfile # Mount your Caddyfile
-      - /opt/podman-data/caddy/data:/data # Persists certificates etc.
-      - /opt/podman-data/caddy/config:/config # Caddy config storage
-      - /opt/podman-data/caddy/logs:/var/log/caddy # Log storage (optional)
+      - "{{ base_data_dir }}/caddy/config/Caddyfile:/etc/caddy/Caddyfile" # Mount your Caddyfile
+      - "{{ base_data_dir }}/caddy/data:/data" # Persists certificates etc.
+      - "{{ base_data_dir }}/caddy/config:/config # Caddy config storage"
+      - "{{ base_data_dir }}/caddy/logs:/var/log/caddy" # Log storage (optional)
     environment:
       - PUID={{ user_puid }}
       - PGID={{ user_pgid }}

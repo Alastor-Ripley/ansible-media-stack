@@ -28,9 +28,18 @@ services:
       - "{{ base_data_dir }}/tdarr/configs:/app/configs"
       - "{{ base_data_dir }}/tdarr/logs:/app/logs"
       # Mount your media library parent directory (needs read/write for transcoding)
-      - /path/to/your/videos:/media # CHANGE HOST PATH
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/Movies-4-The-Folders-Revenge:/Videos/Movies-4-The-Folders-Revenge
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/TV-4-The-Next-Generation:/Videos/TV-4-The-Next-Generation
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/UHD-Movies-A-New-Beginning:/Videos/UHD-Movies-A-New-Beginning
+      - /home/alastor/Sylvester-McCoy/Mine/Videos/UHD-TV-Lucys-Tits:/Videos/UHD-TV-Lucys-Tits
+      - /home/alastor/Paul-McGann/Videos/Movies\ 2\ -\ The\ Foldering:/Videos/Movies-2-The-Foldering
+      - /home/alastor/Paul-McGann/Videos/Movies\ 3\ -\ The\ Final\ Folder:/Videos/Movies-3-The-Final-Folder
+      - /home/alastor/Paul-McGann/Videos/TV\ 2\ -\ Electric\ Boogaloo:/Videos/TV-2-Electric-Boogaloo
+      - /home/alastor/Paul-McGann/Porn:/Porn
+      - /home/alastor/Paul-McGann/Videos/TV\ 3\ -\ The\ Search\ for\ Spock:/Videos/TV-3-The-Search-For-Spock
+      - /home/alastor/Tom-Baker/Downloads:/Videos/Downloading
       # Mount a dedicated host path for transcoding cache
-      - /path/to/your/tdarr_cache:/temp # CHANGE HOST PATH
+      - /var/home/alastor/.cache:/temp # CHANGE HOST PATH
     # Nvidia GPU passthrough via CDI
     devices:
       - "nvidia.com/gpu=all"

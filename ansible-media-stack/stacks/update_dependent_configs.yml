@@ -1,0 +1,84 @@
+- name: Update Configs with Application Keys/Tokens
+  hosts: 192.168.50.182 # Your VM IP
+  gather_facts: no # Basic facts usually not needed for just templating
+  # become potentially needed for pre_tasks, but tasks use become_user
+
+  vars:
+    # Define the user again - needed for paths and become_user
+    podman_user: "alastor"
+    podman_group: "alastor"
+    # Variables determined dynamically in pre_tasks
+    user_home_dir: ""
+    base_stack_dir: ""
+    base_data_dir: ""
+
+    # --- Secrets/Tokens Required by Templates (Values come from Vault) ---
+    # For Recyclarr config template
+    vault_radarr_api_key: "{{ vault_radarr_api_key }}"
+    vault_sonarr_api_key: "{{ vault_sonarr_api_key }}"
+    vault_lidarr_api_key: "{{ vault_lidarr_api_key | default(omit) }}" # Use default(omit) if Lidarr is optional
+
+    # For Diun compose template
+    gotify_app_token: "{{ gotify_app_token }}"
+
+  pre_tasks:
+    # --- Repeat dynamic directory finding from main playbook ---
+    - name: Get actual home directory path for existing user '{{ podman_user }}'
+      become: yes # Need root to query user info
+      ansible.builtin.user:
+        name: "{{ podman_user }}"
+      register: podman_user_info
+      check_mode: yes
+      failed_when: not podman_user_info.home
+      changed_when: false
+
+    - name: Set user home directory fact and derived base dirs
+      ansible.builtin.set_fact:
+        user_home_dir: "{{ podman_user_info.home }}"
+        base_stack_dir: "{{ podman_user_info.home }}/podman-stacks"
+        base_data_dir: "{{ podman_user_info.home }}/podman-data"
+        cacheable: yes # Good practice
+
+  tasks:
+    - name: Re-template Recyclarr configuration file with updated API keys
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.template:
+        src: "stacks/recyclarr/config.yml.j2"
+        dest: "{{ base_data_dir }}/recyclarr/config/recyclarr.yml"
+        mode: '0600'
+      # Notify Recyclarr to restart only if the template changed
+      notify: Restart Recyclarr Service
+
+    - name: Re-template Diun compose file with updated Gotify token
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.template:
+        src: "stacks/diun/compose.yml.j2"
+        dest: "{{ base_stack_dir }}/diun/compose.yml"
+        mode: '0644'
+      # Notify Diun service to potentially reload or restart
+      # Note: Changing compose requires podman-compose down/up or systemd restart
+      notify: Restart Diun Service
+
+  handlers:
+    # Handler to restart Recyclarr if its config changed
+    - name: Restart Recyclarr Service
+      listen: Restart Recyclarr Service
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.systemd:
+        scope: user
+        name: recyclarr.service
+        state: restarted
+
+    # Handler to restart Diun if its compose file changed
+    # Restarting via systemd ensures podman reads the new compose file
+    - name: Restart Diun Service
+      listen: Restart Diun Service
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.systemd:
+        scope: user
+        name: diun.service
+        state: restarted

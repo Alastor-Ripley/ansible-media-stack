@@ -10,10 +10,10 @@ services:
       - TZ=America/New_York
       # Add other CrowdSec env vars as needed (COLLECTIONS, PARSERS, etc.)
     volumes:
-      - /opt/podman-data/crowdsec/config:/etc/crowdsec/
-      - /opt/podman-data/crowdsec/data:/var/lib/crowdsec/data/
+      - "{{ base_data_dir }}/crowdsec/config:/etc/crowdsec/"
+      - "{{ base_data_dir }}/crowdsec/data:/var/lib/crowdsec/data/"
       # Example: Mount log directory to parse (e.g., Caddy logs) READ-ONLY
-      - /opt/podman-data/caddy/logs:/var/log/caddy:ro
+      - "{{ base_data_dir }}/caddy/logs:/var/log/caddy:ro"
       # Example: Mount podman socket if needed (requires careful GID)
       # - /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro
     # ports: # CrowdSec usually doesn't need exposed ports unless using API/metrics externally

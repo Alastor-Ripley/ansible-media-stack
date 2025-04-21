@@ -9,11 +9,10 @@ services:
       - TZ=America/New_York
       - AUTO_UPDATE=true # Optional: Enable internal updater
     volumes:
-      - /opt/podman-data/jackett/config:/config
-      - /opt/podman-data/jackett/downloads:/downloads # Blackhole directory
-    ports:
-      # - "9117:9117" # Not needed, access via Prowlarr/Gluetun network
-      pass
+      - "{{ base_data_dir }}/jackett/config:/config"
+      - "{{ base_data_dir }}/jackett/downloads:/downloads" # Blackhole directory
+    ports: pass
+    # - "9117:9117" # Not needed, access via Prowlarr/Gluetun network
     restart: unless-stopped
     network_mode: "service:gluetun" # Route traffic through Gluetun VPN
     depends_on:

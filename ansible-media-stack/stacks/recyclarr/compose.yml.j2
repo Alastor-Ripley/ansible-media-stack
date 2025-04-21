@@ -4,14 +4,16 @@ services:
   recyclarr:
     image: ghcr.io/recyclarr/recyclarr:latest
     container_name: recyclarr
+    hostname: recyclarr
     restart: unless-stopped
     user: "{{ user_puid }}:{{ user_pgid }}" # Run as podman_user
     environment:
       - TZ={{ timezone }}
       # Optional: Set cron schedule for sync mode, e.g., daily at 3 AM
+      # Example: runs recyclarr sync at 3:00 AM system time based on TZ
       # - RECYCLARR_CRON_SCHEDULE=0 3 * * *
     volumes:
-      # Mount config directory where recyclarr.yml lives
+      # Mount config directory where recyclarr.yml lives (templated by Ansible)
       - "{{ base_data_dir }}/recyclarr/config:/config"
       # Mount Radarr/Sonarr config directories READ-ONLY for Recyclarr to access their data
       - "{{ base_data_dir }}/radarr/config:/config/radarr-config:ro"
@@ -20,10 +22,9 @@ services:
       # - "{{ base_data_dir }}/lidarr/config:/config/lidarr-config:ro"
     # No ports needed
     # Runs in cron mode by default if no command specified and CRON_SCHEDULE is set
-    # Or run via 'podman exec recyclarr recyclarr sync' triggered by host cron/systemd timer
-
-networks:
-  media_network: # Needs network to reach *arr instances via their container names/IPs
+    # Otherwise, run via 'podman exec recyclarr recyclarr sync' triggered by host cron/systemd timer
+    networks:
+      - media_network # Needs network to reach *arr instances via their container names/IPs
 
 networks:
   media_network:

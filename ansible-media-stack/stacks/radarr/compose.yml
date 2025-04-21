@@ -8,7 +8,7 @@ services:
       - PGID={{ user_pgid }}
       - TZ=America/New_York
     volumes:
-      - /opt/podman-data/radarr/config:/config
+      - "{{ base_data_dir }}/radarr/config:/config"
       # Mount your downloads folder(s) - must match download client container path
       # - /path/to/your/downloads:/downloads # Example - MUST match download client path
       - /home/alastor/Sylvester-McCoy/Mine/Videos/Movies-4-The-Folders-Revenge:/Videos/Movies-4-The-Folders-Revenge
@@ -20,9 +20,8 @@ services:
       - /home/alastor/Paul-McGann/Videos/TV\ 2\ -\ Electric\ Boogaloo:/Videos/TV-2-Electric-Boogaloo
       - /home/alastor/Paul-McGann/Videos/TV\ 3\ -\ The\ Search\ for\ Spock:/Videos/TV-3-The-Search-For-Spock
       - /home/alastor/Tom-Baker/Downloads:/Videos/Downloading
-    ports:
-      # - "7878:7878" # Not needed, access via Caddy or Gluetun's network
-      pass
+    ports: pass
+    # - "7878:7878" # Not needed, access via Caddy or Gluetun's network
     restart: unless-stopped
     network_mode: "service:gluetun" # Route traffic through Gluetun VPN
     depends_on:

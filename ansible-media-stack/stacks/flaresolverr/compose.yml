@@ -9,9 +9,7 @@ services:
       - LOG_LEVEL=info
       - TZ=America/New_York
       # - CAPTCHA_SOLVER= # Configure if using hCaptcha etc. solver services
-    ports:
-      # - "8191:8191" # Not needed, accessed internally by Prowlarr/Changedetection etc.
-      pass
+    ports: pass
     # volumes: # Usually stateless, but can persist config if needed
     #  - /opt/podman-data/flaresolverr/config:/config
     restart: unless-stopped

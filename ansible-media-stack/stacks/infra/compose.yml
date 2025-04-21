@@ -9,11 +9,10 @@ services:
       - TZ=America/New_York
       # - OTHER_ENV_VARS=needed_by_image
     volumes:
-      - /opt/podman-data/infra/config:/config # Adjust path as needed
-      # - /opt/podman-data/infra/data:/data # Adjust path as needed
-    ports:
-      # - "XXXX:YYYY" # Expose ports if needed
-      pass
+      - :{{ base_data_dir }}/infra/config:/config"" # Adjust path as needed
+      # - "{{ base_data_dir }}/infra/data:/data" # Adjust path as needed
+    ports: pass
+    # - "XXXX:YYYY" # Expose ports if needed
     restart: unless-stopped
     networks:
       - media_network

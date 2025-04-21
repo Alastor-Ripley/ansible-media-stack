@@ -8,10 +8,9 @@ services:
       - PGID={{ user_pgid }}
       - TZ=America/New_York
     volumes:
-      - /opt/podman-data/prowlarr/config:/config
-    ports:
-      # - "9696:9696" # Not needed, access via Caddy or Gluetun's network
-      pass
+      - "{{ base_data_dir }}/prowlarr/config:/config"
+    ports: pass
+    # - "9696:9696" # Not needed, access via Caddy or Gluetun's network
     restart: unless-stopped
     network_mode: "service:gluetun" # Route traffic through Gluetun VPN
     depends_on:
