@@ -1,0 +1,310 @@
+---
+- name: Deploy Podman Media Stack with Systemd User Units (uCore Compatible - User Exists)
+  hosts: 192.168.50.182 # Your VM IP
+  gather_facts: yes
+
+  vars:
+    # --- Core Setup ---
+    podman_user: "alastor"
+    podman_group: "alastor"
+    user_puid: "1001"
+    user_pgid: "1001"
+    timezone: "America/New_York" # CHANGE THIS
+    # Variables determined in pre_tasks
+    user_home_dir: ""
+    base_stack_dir: ""
+    base_data_dir: ""
+
+    # --- Gluetun ---
+    vpn_provider: "nordvpn"
+    vpn_type: "wireguard"
+
+    # --- Ports ---
+    endlessh_port: 2222
+    portainer_https_port: 9443
+
+    # --- Secrets (USE ANSIBLE VAULT!) ---
+    authelia_session_secret: "{{ authelia_session_secret }}"
+    authelia_jwt_secret: "{{ authelia_jwt_secret }}"
+    authelia_storage_encryption_key: "{{ authelia_storage_encryption_key }}"
+    vault_ionos_api_key: "{{ vault_ionos_api_key }}"
+    # Add vault variables for NordVPN keys, Recyclarr API keys etc.
+    vault_nordvpn_wg_private_key: "{{ vault_nordvpn_wg_private_key }}"
+    vault_nordvpn_wg_address: "{{ vault_nordvpn_wg_address }}"
+    # vault_radarr_api_key: "CHANGE_ME_IN_VAULT"
+    # vault_sonarr_api_key: "CHANGE_ME_IN_VAULT"
+    # vault_lidarr_api_key: "CHANGE_ME_IN_VAULT"
+
+    # --- Tokens ---
+    gotify_app_token: "CHANGE_ME_GET_FROM_GOTIFY_UI"
+
+    # --- Service Lists (ADD NEW SERVICES) ---
+    podman_services:
+      - jellyfin
+      - stash
+      - dozzle
+      - crowdsec
+      - caddy
+      - diun
+      - scrutiny
+      - uptime-kuma
+      - jellyseerr
+      - infra # Placeholder
+      - gluetun
+      - radarr
+      - sonarr
+      - lidarr
+      - prowlarr
+      - homepage
+      - changedetection
+      - unbound
+      - godns
+      - jackett
+      - flaresolverr
+      - endlessh
+      - qbittorrent
+      - sabnzbd
+      # - borgmatic # Still commented out
+      - authelia
+      - gotify
+      - portainer
+      # --- Newly Added Services ---
+      - tdarr
+      - whisparr
+      - recyclarr
+      - autobrr
+      - octoprint
+
+    # Add data dirs for new services
+    services_with_data_dirs: # Relative paths under base_data_dir
+      # --- Existing ---
+      - jellyfin/config
+      - jellyfin/cache
+      # - jellyfin/media # Media itself isn't usually under base_data_dir
+      - stash/config
+      - stash/generated
+      - stash/metadata
+      - stash/cache
+      - stash/blobs
+      - dozzle/config
+      - crowdsec/config
+      - crowdsec/data
+      - caddy/config
+      - caddy/data
+      - caddy/logs
+      - diun/config
+      - diun/data
+      - scrutiny/config
+      - scrutiny/influxdb
+      - uptime-kuma/data
+      - jellyseerr/config
+      - infra/config # Placeholder
+      - gluetun/config
+      - radarr/config
+      - sonarr/config
+      - lidarr/config
+      - prowlarr/config
+      - homepage/config
+      - changedetection/data
+      - unbound/config
+      - jackett/config
+      # - jackett/downloads # Usually maps to main downloads path
+      - flaresolverr/config
+      # - endlessh
+      - qbittorrent/config
+      - sabnzbd/config
+      # - borgmatic/config
+      - authelia/config
+      - gotify/data
+      - portainer/data
+      - godns/config
+      # --- Newly Added ---
+      - tdarr/server
+      - tdarr/configs
+      - tdarr/logs
+      - whisparr/config
+      - recyclarr/config
+      - autobrr/config
+      - octoprint/data
+      # --- Named Volume Dirs (Handled by Podman/Compose) ---
+      # - borgmatic_cache # Example if using named volume
+
+  pre_tasks:
+    - name: Get actual home directory path for existing user '{{ podman_user }}'
+      become: yes
+      ansible.builtin.user:
+        name: "{{ podman_user }}"
+      register: podman_user_info
+      check_mode: yes
+      failed_when: not podman_user_info.home
+      changed_when: false
+
+    - name: Set user home directory fact and derived base dirs
+      ansible.builtin.set_fact:
+        user_home_dir: "{{ podman_user_info.home }}"
+        base_stack_dir: "{{ podman_user_info.home }}/podman-stacks"
+        base_data_dir: "{{ podman_user_info.home }}/podman-data"
+        cacheable: yes # Make facts reusable in second play
+
+  tasks:
+    - name: Ensure linger is enabled for the user '{{ podman_user }}'
+      become: yes
+      ansible.builtin.command: "loginctl enable-linger {{ podman_user }}"
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure base directories exist in user home
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ base_stack_dir }}"
+        - "{{ base_data_dir }}"
+
+    - name: Create data subdirectories for services
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.file:
+        path: "{{ base_data_dir }}/{{ item }}"
+        state: directory
+        mode: '0775'
+      loop: "{{ services_with_data_dirs }}"
+
+    - name: Create stack subdirectories for compose files
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.file:
+        path: "{{ base_stack_dir }}/{{ item }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ podman_services }}"
+
+    # --- Template/Copy config files FIRST ---
+    - name: Template GoDNS configuration file
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.template:
+        src: "stacks/godns/config.yml.j2"
+        dest: "{{ base_data_dir }}/godns/config/config.yml"
+        mode: '0600'
+
+    - name: Copy Caddyfile
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.copy:
+        src: "stacks/caddy/Caddyfile"
+        dest: "{{ base_data_dir }}/caddy/config/Caddyfile"
+        mode: '0644'
+      notify: Restart Caddy Service
+
+    - name: Template Authelia configuration
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.template:
+        src: "stacks/authelia/configuration.yml.j2"
+        dest: "{{ base_data_dir }}/authelia/config/configuration.yml"
+        mode: '0600'
+
+    - name: Copy Authelia users file
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.copy:
+        src: "stacks/authelia/users.yml"
+        dest: "{{ base_data_dir }}/authelia/config/users.yml"
+        mode: '0600'
+
+    # ADDED: Template Recyclarr config file
+    - name: Template Recyclarr configuration file
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.template:
+        src: "stacks/recyclarr/config.yml.j2" # Needs API keys from Vault
+        dest: "{{ base_data_dir }}/recyclarr/config/recyclarr.yml"
+        mode: '0600'
+
+    # --- Template/Copy Compose files ---
+    # List services whose compose files need templating (usually for secrets)
+    - name: Template Compose files with sensitive data
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.template:
+        src: "stacks/{{ item }}/compose.yml.j2"
+        dest: "{{ base_stack_dir }}/{{ item }}/compose.yml"
+        mode: '0644'
+      loop:
+        - godns # Uses Vault var for API key in config, but template compose too
+        - diun # Uses Vault var for gotify token
+        - gluetun # Uses Vault var for VPN key/address
+        # Add others if their compose file needs templating (e.g., Portainer if socket path is variable)
+        # - tdarr # If templating PUID/etc or secrets
+        # - whisparr
+        # - recyclarr
+        # - autobrr
+        # - octoprint
+        # - gotify
+        # - portainer
+
+    # List services whose compose file can be copied directly
+    - name: Copy standard Compose files to target host
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.copy:
+        src: "stacks/{{ item }}/compose.yml"
+        dest: "{{ base_stack_dir }}/{{ item }}/compose.yml"
+        mode: '0644'
+      loop: >
+        {{ podman_services |
+           difference(['godns', 'diun', 'gluetun']) }} # Exclude templated ones
+
+    # --- Generate Systemd Units ---
+    - name: Generate systemd user units for each stack
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.command: >-
+        podman generate systemd --new --files --name {{ item }} {{ base_stack_dir }}/{{ item }}/compose.yml
+      args:
+        chdir: "{{ user_home_dir }}"
+        creates: "{{ user_home_dir }}/.config/systemd/user/{{ item }}.service"
+      register: systemd_generate_result
+      changed_when: "'Created' in systemd_generate_result.stdout"
+      loop: "{{ podman_services }}" # Includes ALL services
+      notify: Reload Systemd User Daemon
+
+  handlers:
+    - name: Reload Systemd User Daemon
+      listen: Reload Systemd User Daemon
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.systemd:
+        scope: user
+        daemon_reload: yes
+
+    - name: Restart Caddy Service
+      listen: Restart Caddy Service
+      become: yes
+      become_user: "{{ podman_user }}"
+      ansible.builtin.systemd:
+        scope: user
+        name: caddy.service
+        state: restarted
+
+# --- Final Play Task: Ensure services are running ---
+- name: Ensure Podman services are enabled and started
+  hosts: 192.168.50.182 # Use correct host IP
+  gather_facts: no
+  # No vars needed if facts are cached from previous play
+
+  tasks:
+    - name: Enable and start systemd user units
+      become: yes
+      become_user: "{{ hostvars[inventory_hostname]['podman_user'] | default('alastor') }}" # Get user from hostvars if possible
+      ansible.builtin.systemd:
+        scope: user
+        name: "{{ item }}.service"
+        enabled: yes
+        state: started
+      # Loop over services defined in hostvars if possible, or redefine list
+      loop: "{{ hostvars[inventory_hostname]['podman_services'] | default(['jellyfin', 'stash', 'dozzle', 'crowdsec', 'caddy', 'diun', 'scrutiny', 'uptime-kuma', 'jellyseerr', 'infra', 'gluetun', 'radarr', 'sonarr', 'lidarr', 'prowlarr', 'homepage', 'changedetection', 'unbound', 'godns', 'jackett', 'flaresolverr', 'endlessh', 'qbittorrent', 'sabnzbd', 'authelia', 'gotify', 'portainer', 'tdarr', 'whisparr', 'recyclarr', 'autobrr', 'octoprint']) }}"
