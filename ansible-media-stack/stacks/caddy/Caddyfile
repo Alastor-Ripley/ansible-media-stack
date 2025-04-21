@@ -69,6 +69,12 @@ lidarr.alastordeciditripley.com {
     reverse_proxy lidarr:8686
     encode zstd gzip
 }
+# Whisparr
+whisparr.alastordeciditripley.com { # ADDED
+    import forward_auth
+    reverse_proxy whisparr:6969
+    encode zstd gzip
+}
 
 # Prowlarr Example
 prowlarr.alastordeciditripley.com {
@@ -82,22 +88,48 @@ home.alastordeciditripley.com {
     reverse_proxy homepage:3000
     encode zstd gzip
 }
-
+# Tdarr
+tdarr.alastordeciditripley.com { # ADDED
+    import forward_auth
+    reverse_proxy tdarr:8265 # Proxy to WebUI port
+    encode zstd gzip
+}
+# Autobrr
+autobrr.alastordeciditripley.com { # ADDED
+    import forward_auth
+    reverse_proxy autobrr:7474 # Proxy to WebUI port (if exposed)
+    encode zstd gzip
+}
+# Octoprint
+octoprint.alastordeciditripley.com { # ADDED
+    import forward_auth
+    reverse_proxy octoprint:5000 # Proxy to WebUI port
+    # Octoprint often uses websockets, might need: header_up X-Scheme {scheme}
+    encode zstd gzip
+}
 # Add other existing services similarly
 stash.alastordeciditripley.com { 
     import forward_auth
     reverse_proxy stash:9999 
-    }
-# dozzle.alastordeciditripley.com { import forward_auth; reverse_proxy dozzle:8080 }
-# kuma.alastordeciditripley.com { import forward_auth; reverse_proxy uptime-kuma:3001 }
+}
+dozzle.alastordeciditripley.com {
+    import forward_auth
+    reverse_proxy dozzle:8080 
+}
+
+kuma.alastordeciditripley.com {
+    import forward_auth
+    reverse_proxy uptime-kuma:3001 
+}
+
 request.alastordeciditripley.com { 
     import forward_auth
     reverse_proxy jellyseerr:5055 
-    }
+}
 changedetection.alastordeciditripley.com {
     import forward_auth
     reverse_proxy changedetection:5000 
-    }
+}
 
 # Authelia Portal (If accessed directly via subdomain - often not needed if using rd= query)
 # auth.alastordeciditripley.com {
