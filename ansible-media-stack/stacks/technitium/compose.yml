@@ -1,0 +1,33 @@
+# stacks/technitium/compose.yml
+version: "3.8"
+services:
+  technitium:
+    image: technitium/dns-server:latest
+    container_name: technitium
+    hostname: technitium-dns # Optional: Set a hostname
+    environment:
+      - TZ={{ timezone }} # Inherited from Ansible vars
+      # Technitium doesn't typically use PUID/PGID for its core files
+      # Optional: Set Web UI password via ENV (check Technitium docs - UI setup often preferred)
+      # - DNS_SERVER_ADMIN_PASSWORD=your_secure_password
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+      - "5380:5380/tcp" # Default Web UI Port
+      # Optional: Expose DoT/DoH ports if needed directly (usually handled by Caddy)
+      # - "853:853/tcp" # DNS-over-TLS
+      # - "443:443/tcp" # DNS-over-HTTPS (Conflicts with Caddy - requires different host port or Caddy handling)
+    volumes:
+      # Mount host directory for persistent config/data
+      - "{{ base_data_dir }}/technitium/config:/etc/dns"
+    # Capability needed if running rootless Podman user to bind port 53
+    cap_add:
+      - NET_BIND_SERVICE
+    restart: unless-stopped
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network

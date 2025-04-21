@@ -2,8 +2,7 @@
 - name: Deploy Podman Media Stack with Systemd User Units (uCore Compatible - User Exists)
   hosts: 192.168.50.182 # Your VM IP
   gather_facts: yes
-  # 'become' is needed for linger, firewall, but not most file operations if done in user home
-  become: yes # Become needed globally for firewall task now
+  # 'become' needed for linger, but use become_user for user-specific tasks
 
   vars:
     # --- Core Setup ---
@@ -21,7 +20,7 @@
     vpn_provider: "nordvpn"
     vpn_type: "wireguard"
 
-    # --- Ports ---
+    # --- Ports (Informational - Firewall and Mounts managed by Ignition/Systemd) ---
     endlessh_port: 2222
     portainer_https_port: 9443
 
@@ -30,17 +29,16 @@
     authelia_jwt_secret: "{{ authelia_jwt_secret }}"
     authelia_storage_encryption_key: "{{ authelia_storage_encryption_key }}"
     vault_ionos_api_key: "{{ vault_ionos_api_key }}"
-    # Add vault variables for NordVPN keys, Recyclarr API keys etc.
-    # vault_nordvpn_wg_private_key: "CHANGE_ME_IN_VAULT"
-    # vault_nordvpn_wg_address: "CHANGE_ME_IN_VAULT"
-    # vault_radarr_api_key: "CHANGE_ME_IN_VAULT"
-    # vault_sonarr_api_key: "CHANGE_ME_IN_VAULT"
-    # vault_lidarr_api_key: "CHANGE_ME_IN_VAULT"
+    vault_nordvpn_wg_private_key: "{{ vault_nordvpn_wg_private_key }}"
+    vault_nordvpn_wg_address: "{{ vault_nordvpn_wg_address | default(omit) }}"
+    vault_radarr_api_key: "{{ vault_radarr_api_key }}" # For Recyclarr
+    vault_sonarr_api_key: "{{ vault_sonarr_api_key }}" # For Recyclarr
+    # vault_lidarr_api_key: "{{ vault_lidarr_api_key }}" # For Recyclarr (if used)
 
     # --- Tokens ---
     gotify_app_token: "CHANGE_ME_GET_FROM_GOTIFY_UI"
 
-    # --- Service Lists ---
+    # --- Service Lists (Added ALL New Services) ---
     podman_services:
       - jellyfin
       - stash
@@ -59,27 +57,29 @@
       - prowlarr
       - homepage
       - changedetection
-      - unbound
+      - technitium # Replaced unbound
       - godns
       - jackett
       - flaresolverr
       - endlessh
       - qbittorrent
       - sabnzbd
-      # - borgmatic # Still commented out
+      # - borgmatic
       - authelia
       - gotify
       - portainer
+      # --- Newly Added Services ---
       - tdarr
       - whisparr
       - recyclarr
       - autobrr
       - octoprint
 
+    # Add data dirs for new services
     services_with_data_dirs: # Relative paths under base_data_dir
+      # --- Existing ---
       - jellyfin/config
       - jellyfin/cache
-      # - jellyfin/media # Media itself isn't usually under base_data_dir
       - stash/config
       - stash/generated
       - stash/metadata
@@ -105,18 +105,16 @@
       - prowlarr/config
       - homepage/config
       - changedetection/data
-      - unbound/config
+      - technitium/config # Replaced unbound/config
       - jackett/config
-      # - jackett/downloads # Usually maps to main downloads path
       - flaresolverr/config
-      # - endlessh
       - qbittorrent/config
       - sabnzbd/config
-      # - borgmatic/config
       - authelia/config
       - gotify/data
       - portainer/data
       - godns/config
+      # --- Newly Added ---
       - tdarr/server
       - tdarr/configs
       - tdarr/logs
@@ -127,7 +125,7 @@
 
   pre_tasks:
     - name: Get actual home directory path for existing user '{{ podman_user }}'
-      become: yes # Needs root to query usually
+      become: yes
       ansible.builtin.user:
         name: "{{ podman_user }}"
       register: podman_user_info
@@ -221,62 +219,14 @@
         mode: '0600'
 
     # --- Template/Copy Compose files ---
-    - name: Template Compose files with sensitive data
+    - name: Template ALL Compose files
       become: yes
       become_user: "{{ podman_user }}"
       ansible.builtin.template:
         src: "stacks/{{ item }}/compose.yml.j2"
         dest: "{{ base_stack_dir }}/{{ item }}/compose.yml"
         mode: '0644'
-      loop:
-        # List services whose compose files need templating
-        - godns
-        - diun
-        - gluetun
-        # Add others if needed (Tdar, Whisparr, Recyclarr, Autobrr, Octoprint...)
-        # Example:
-        # - tdarr
-        # - recyclarr # If compose needs templating
-
-    - name: Copy standard Compose files to target host
-      become: yes
-      become_user: "{{ podman_user }}"
-      ansible.builtin.copy:
-        src: "stacks/{{ item }}/compose.yml"
-        dest: "{{ base_stack_dir }}/{{ item }}/compose.yml"
-        mode: '0644'
-      loop: >
-        {{ podman_services |
-           difference(['godns', 'diun', 'gluetun']) }} # UPDATE THIS list if you template more compose files above
-
-    # --- CONFIGURE FIREWALL ---
-    - name: Ensure firewall allows required ports (using firewalld)
-      become: yes # This task MUST run as root
-      ansible.posix.firewalld:
-        port: "{{ item }}"
-        permanent: yes
-        state: enabled
-        immediate: yes
-      loop:
-        # Essential Ports:
-        - "80/tcp"  # Caddy HTTP
-        - "443/tcp" # Caddy HTTPS
-        - "443/udp" # Caddy HTTP/3
-        - "{{ endlessh_port }}/tcp" # Endlessh SSH Tarpit Port
-        - "{{ portainer_https_port }}/tcp" # Portainer HTTPS direct access
-
-        # Optional Ports (Only if direct access needed AND not proxied by Caddy):
-        # - "53/tcp"  # Unbound DNS (if used externally)
-        # - "53/udp"  # Unbound DNS (if used externally)
-        # - "5000/tcp" # Octoprint Web UI (if accessed directly)
-        # - "8080/tcp" # Octoprint Webcam (if accessed directly)
-        # - "8265/tcp" # Tdarr Web UI (if accessed directly)
-        # - "6969/tcp" # Whisparr Web UI (if accessed directly)
-        # Add other specific ports here if needed (e.g., Gluetun forwarded ports)
-
-      # Optional: Add condition if firewalld might not be installed/running
-      # when: ansible_facts.services['firewalld.service'] is defined and ansible_facts.services['firewalld.service'].state == 'running'
-      # Note: If using ufw, replace this task with the ansible.builtin.ufw module.
+      loop: "{{ podman_services }}" # Loop through ALL services (assuming all are templates)
 
     # --- Generate Systemd Units ---
     - name: Generate systemd user units for each stack
@@ -289,7 +239,7 @@
         creates: "{{ user_home_dir }}/.config/systemd/user/{{ item }}.service"
       register: systemd_generate_result
       changed_when: "'Created' in systemd_generate_result.stdout"
-      loop: "{{ podman_services }}" # Includes ALL services
+      loop: "{{ podman_services }}" # Includes ALL services now active
       notify: Reload Systemd User Daemon
 
   handlers:
@@ -314,17 +264,51 @@
 - name: Ensure Podman services are enabled and started
   hosts: 192.168.50.182 # Use correct host IP
   gather_facts: no
-  # Use cached facts if needed, especially podman_user
-  # vars: # Define user again or pass via inventory/extra-vars
-  #   podman_user: "alastor"
+  vars: # Define these again for clarity or rely on cached facts
+      podman_user: "alastor"
+      # Define full list again matching the main play's vars
+      podman_services:
+        - jellyfin
+        - stash
+        - dozzle
+        - crowdsec
+        - caddy
+        - diun
+        - scrutiny
+        - uptime-kuma
+        - jellyseerr
+        - infra # Placeholder
+        - gluetun
+        - radarr
+        - sonarr
+        - lidarr
+        - prowlarr
+        - homepage
+        - changedetection
+        - technitium # Replaced unbound
+        - godns
+        - jackett
+        - flaresolverr
+        - endlessh
+        - qbittorrent
+        - sabnzbd
+        # - borgmatic
+        - authelia
+        - gotify
+        - portainer
+        - tdarr
+        - whisparr
+        - recyclarr
+        - autobrr
+        - octoprint
 
   tasks:
     - name: Enable and start systemd user units
       become: yes
-      become_user: "{{ hostvars[inventory_hostname]['podman_user'] | default('alastor') }}" # Get user from cached facts or default
+      become_user: "{{ podman_user }}" # Reference var defined in this play
       ansible.builtin.systemd:
         scope: user
         name: "{{ item }}.service"
         enabled: yes
         state: started
-      loop: "{{ hostvars[inventory_hostname]['podman_services'] }}" # Get service list from cached facts
+      loop: "{{ podman_services }}"

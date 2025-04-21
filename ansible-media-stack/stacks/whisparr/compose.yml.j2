@@ -5,6 +5,7 @@ services:
     # Use hotio (popular alternative) or thespad image
     image: ghcr.io/hotio/whisparr:latest # Or ghcr.io/thespad/whisparr:latest
     container_name: whisparr
+    hostname: whisparr
     restart: unless-stopped
     environment:
       - PUID={{ user_puid }}
@@ -13,10 +14,10 @@ services:
       - UMASK=002 # Optional
     volumes:
       - "{{ base_data_dir }}/whisparr/config:/config"
-      # Mount the parent download/video directory
-      - /path/to/your/videos:/data # CHANGE HOST PATH (Consistent internal path)
+      # Mount the parent download/video directory (consistent internal path)
+      - /path/to/your/videos:/data # CHANGE HOST PATH
     ports:
-      - "6969:6969" # Default Whisparr port
+      - "6969:6969" # Default Whisparr port (expose only if needed directly)
     networks:
       - media_network
     # If Whisparr needs to go through VPN:

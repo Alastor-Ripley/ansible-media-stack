@@ -104,7 +104,8 @@ autobrr.alastordeciditripley.com { # ADDED
 octoprint.alastordeciditripley.com { # ADDED
     import forward_auth
     reverse_proxy octoprint:5000 # Proxy to WebUI port
-    # Octoprint often uses websockets, might need: header_up X-Scheme {scheme}
+        header_up X-Scheme {scheme}
+        header_up X-Script-Name /
     encode zstd gzip
 }
 # Add other existing services similarly
@@ -130,6 +131,13 @@ changedetection.alastordeciditripley.com {
     import forward_auth
     reverse_proxy changedetection:5000 
 }
+
+dns.alastordeciditripley.com { # Or your preferred subdomain
+    # Optional: Protect the UI with Authelia
+    # import forward_auth
+    reverse_proxy technitium:5380 # Proxy to container name and internal UI port
+}
+
 
 # Authelia Portal (If accessed directly via subdomain - often not needed if using rd= query)
 # auth.alastordeciditripley.com {
