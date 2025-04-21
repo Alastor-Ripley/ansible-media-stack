@@ -86,12 +86,24 @@ access_control:
       policy: one_factor # Or two_factor
 
     - domain: "stash.alastordeciditripley.com"
-      policy: one_factor # Or two_factor
+      policy: two_factor # Or two_factor
 
     - domain: "request.alastordeciditripley.com"  # Jellyseerr
       policy: one_factor # Or two_factor
 
     - domain: "changedetection.alastordeciditripley.com"
+      policy: one_factor # Or two_factor
+
+    - domain: "tdarr.alastordeciditripley.com"
+      policy: one_factor # Or two_factor
+    
+    - domain: "whisparr.alastordeciditripley.com"
+      policy: two_factor # Or two_factor
+    
+    - domain: "autobrr.alastordeciditripley.com"
+      policy: one_factor # Or two_factor
+    
+    - domain: "octoprint.alastordeciditripley.com"
       policy: one_factor # Or two_factor
 
     # --- Optional: Add rules for services currently commented out in Caddyfile ---
