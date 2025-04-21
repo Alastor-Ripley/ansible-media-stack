@@ -1,0 +1,30 @@
+# stacks/octoprint/compose.yml.j2
+version: "3.8"
+services:
+  octoprint:
+    image: octoprint/octoprint:latest
+    container_name: octoprint
+    restart: unless-stopped
+    environment:
+      - ENABLE_MJPG_STREAMER=true # Enable webcam streamer if used
+    ports:
+      - "5000:5000" # Octoprint Web UI Default Port (use 80:80 if preferred internally)
+      - "8080:8080" # Webcam Stream Port (if using mjpg_streamer)
+    devices:
+      # --- CRITICAL: Pass through 3D printer USB serial device ---
+      - /dev/ttyACM0:/dev/ttyACM0 # CHANGE /dev/ttyACM0 if printer uses a different device file
+      # --- Optional: Pass through webcam device ---
+      - /dev/video0:/dev/video0 # CHANGE /dev/video0 if webcam uses a different device file
+    volumes:
+      - "{{ base_data_dir }}/octoprint/data:/octoprint" # Octoprint data persistence
+    # Needs privileged or group access to devices - simpler to run container process as root initially?
+    # Or ensure podman_user is in the 'dialout' or similar group on host for serial access
+    # User directive might be tricky with device permissions
+    # user: "{{ user_puid }}:{{ user_pgid }}"
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network

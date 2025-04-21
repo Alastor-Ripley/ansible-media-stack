@@ -1,0 +1,31 @@
+# stacks/recyclarr/compose.yml.j2
+version: "3.8"
+services:
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:latest
+    container_name: recyclarr
+    restart: unless-stopped
+    user: "{{ user_puid }}:{{ user_pgid }}" # Run as podman_user
+    environment:
+      - TZ={{ timezone }}
+      # Optional: Set cron schedule for sync mode, e.g., daily at 3 AM
+      # - RECYCLARR_CRON_SCHEDULE=0 3 * * *
+    volumes:
+      # Mount config directory where recyclarr.yml lives
+      - "{{ base_data_dir }}/recyclarr/config:/config"
+      # Mount Radarr/Sonarr config directories READ-ONLY for Recyclarr to access their data
+      - "{{ base_data_dir }}/radarr/config:/config/radarr-config:ro"
+      - "{{ base_data_dir }}/sonarr/config:/config/sonarr-config:ro"
+      # Add Lidarr config if using Recyclarr with it
+      # - "{{ base_data_dir }}/lidarr/config:/config/lidarr-config:ro"
+    # No ports needed
+    # Runs in cron mode by default if no command specified and CRON_SCHEDULE is set
+    # Or run via 'podman exec recyclarr recyclarr sync' triggered by host cron/systemd timer
+
+networks:
+  media_network: # Needs network to reach *arr instances via their container names/IPs
+
+networks:
+  media_network:
+    external: true
+    name: media_network

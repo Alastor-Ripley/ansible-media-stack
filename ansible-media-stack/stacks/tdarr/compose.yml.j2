@@ -1,0 +1,45 @@
+# stacks/tdarr/compose.yml.j2
+version: "3.8"
+services:
+  tdarr:
+    image: ghcr.io/haveagitgat/tdarr:latest
+    container_name: tdarr
+    restart: unless-stopped
+    ports:
+      - "8265:8265" # webUI port
+      - "8266:8266" # server port
+    environment:
+      - TZ={{ timezone }}
+      - PUID={{ user_puid }}
+      - PGID={{ user_pgid }}
+      - UMASK_SET=002 # Optional umask
+      - serverIP=0.0.0.0 # Listen on all interfaces inside container
+      - serverPort=8266
+      - webUIPort=8265
+      - internalNode=true # Run node within server container
+      - nodeName=InternalNode # Name for the internal node
+      - inContainer=true
+      - ffmpegVersion=7 # Or 7, check Tdarr docs
+      # Ensure Nvidia Container Toolkit/CDI is set up on host
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - "{{ base_data_dir }}/tdarr/server:/app/server"
+      - "{{ base_data_dir }}/tdarr/configs:/app/configs"
+      - "{{ base_data_dir }}/tdarr/logs:/app/logs"
+      # Mount your media library parent directory (needs read/write for transcoding)
+      - /path/to/your/videos:/media # CHANGE HOST PATH
+      # Mount a dedicated host path for transcoding cache
+      - /path/to/your/tdarr_cache:/temp # CHANGE HOST PATH
+    # Nvidia GPU passthrough via CDI
+    devices:
+      - "nvidia.com/gpu=all"
+      # Optional: Add Intel/AMD VAAPI device if needed
+      # - "/dev/dri:/dev/dri"
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: media_network
