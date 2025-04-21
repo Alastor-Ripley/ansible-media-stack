@@ -9,11 +9,11 @@ services:
       - TZ=America/New_York
       - STASH_STASH=/data/ # Internal container path for stash data
     volumes:
-      - /opt/podman-data/stash/config:/config # Config yaml
-      - /opt/podman-data/stash/generated:/data/generated # Generated content previews etc.
-      - /opt/podman-data/stash/metadata:/data/metadata # Metadata DBs etc.
-      - /opt/podman-data/stash/cache:/data/cache
-      - /opt/podman-data/stash/blobs:/data/blobs
+      - "{{ base_data_dir }}/stash/config:/config" # Config yaml
+      - "{{ base_data_dir }}/stash/generated:/data/generated" # Generated content previews etc.
+      - "{{ base_data_dir }}/stash/metadata:/data/metadata" # Metadata DBs etc.
+      - "{{ base_data_dir }}/stash/cache:/data/cache"
+      - "{{ base_data_dir }}/stash/blobs:/data/blobs"
       - /home/alastor/Paul-McGann/Porn:/stash # If using blob storage
       # Mount your *actual* media libraries READ-ONLY here for Stash to scan
       # Example: - /path/to/your/real/media:/media:ro
